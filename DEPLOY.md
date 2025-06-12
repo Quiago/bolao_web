@@ -1,23 +1,36 @@
 # Render.com Deployment Instructions for BOLAO Frontend
 
+## ⚠️ DEPLOYMENT FIX APPLIED
+
+The deployment issue has been resolved! The problem was that TailwindCSS and PostCSS were in `devDependencies` instead of `dependencies`, causing build failures on Render.com.
+
 ## Quick Deploy to Render.com
 
 ### Method 1: Web Service (Recommended)
 
 1. **Connect your GitHub repository** to Render.com
 2. **Create a new Web Service** with these settings:
-   - **Build Command**: `npm install && npm run build`
-   - **Start Command**: `npm run start`
+   - **Build Command**: `./build.sh`
+   - **Start Command**: `./start.sh`
    - **Environment**: Node
+   - **Node Version**: 18 (specified in .nvmrc)
    - **Plan**: Free (or Starter for better performance)
 
 3. **Set Environment Variables**:
-   ```
+
+   ```bash
    NODE_ENV=production
    NEXT_PUBLIC_API_URL=https://quiago-bolao-search.hf.space
    NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1IjoicXVpYWdvIiwiYSI6ImNtYnNua2dlYzBua3Mybm9nZ2RhZ284ZzcifQ.6mICMI44zgWwWc_RYd4VYA
    HUGGING_FACE_TOKEN=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
    ```
+
+### What Was Fixed
+
+1. **Moved build dependencies to production**: TailwindCSS, PostCSS, and Autoprefixer moved from `devDependencies` to `dependencies`
+2. **Enhanced build script**: Added error checking and build verification
+3. **Added Node.js version specification**: `.nvmrc` file ensures consistent Node.js version
+4. **Improved error handling**: Better debugging and error reporting
 
 ### Method 2: Using render.yaml (Blueprint)
 
@@ -76,6 +89,7 @@ For better performance on Render.com:
 ## Support
 
 If you need help with deployment, check:
+
 - Render.com documentation
 - Next.js deployment guides
 - This project's GitHub issues

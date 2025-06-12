@@ -58,7 +58,8 @@ export default async function handler(req, res) {
             products,
             total_results: response.data.total_results,
             search_time: response.data.search_time
-        });    } catch (error) {
+        });
+    } catch (error) {
         console.error('Search API error:', error.message);
         console.error('Error details:', {
             code: error.code,
@@ -74,7 +75,7 @@ export default async function handler(req, res) {
             error.response?.status === 404 ||
             error.response?.status === 503 ||
             error.response?.status === 504) {
-            
+
             console.log('API unavailable, using mock data');
             return res.status(200).json({
                 products: getMockData(req.query.query),
