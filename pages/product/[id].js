@@ -5,58 +5,44 @@ import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import Map from '../../components/Map';
 import { logProductView, logContactAction, logSocialClick } from '../../utils/analytics';
+import { useProducts } from '../../contexts/ProductContext';
 
 export default function ProductDetail() {
     const router = useRouter();
-    const { id, search, filters } = router.query;
+    const { id } = router.query;
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const { getProductById, lastSearch } = useProducts();
 
     useEffect(() => {
         if (id) {
-            fetchProductDetails();
+            // Intentar obtener el producto del contexto
+            const productFromContext = getProductById(id);
+            
+            if (productFromContext) {
+                setProduct(productFromContext);
+                setLoading(false);
+                
+                // Log product view analytics
+                logProductView(productFromContext.id, productFromContext.product_name || productFromContext.name);
+            } else {
+                // Si no está en el contexto, redirigir a la página principal
+                console.warn('Product not found in context, redirecting to home');
+                router.push('/');
+            }
         }
-    }, [id]);
+    }, [id, getProductById, router]);
 
     const getBackUrl = () => {
-        if (search) {
+        // Si tenemos información de la última búsqueda, reconstruir la URL
+        if (lastSearch.query) {
             const searchParams = new URLSearchParams();
-            searchParams.set('q', search);
-            if (filters) {
-                try {
-                    const parsedFilters = JSON.parse(filters);
-                    if (parsedFilters.location) searchParams.set('location', parsedFilters.location);
-                    if (parsedFilters.type) searchParams.set('type', parsedFilters.type);
-                } catch (e) {
-                    // Si hay error parsing filters, solo usar search
-                }
-            }
+            searchParams.set('q', lastSearch.query);
+            if (lastSearch.filters?.location) searchParams.set('location', lastSearch.filters.location);
+            if (lastSearch.filters?.type) searchParams.set('type', lastSearch.filters.type);
             return `/?${searchParams.toString()}`;
         }
         return '/';
-    };
-
-    const fetchProductDetails = async () => {
-        try {
-            setLoading(true);
-            const response = await fetch(`/api/product/${id}`);
-
-            if (!response.ok) {
-                throw new Error('Producto no encontrado');
-            }
-
-            const data = await response.json();
-            setProduct(data);
-
-            // Log product view analytics
-            logProductView(data.id, data.product_name || data.name);
-        } catch (error) {
-            console.error('Error fetching product:', error);
-            setError(error.message);
-        } finally {
-            setLoading(false);
-        }
     };
 
     const formatPrice = (price) => {
@@ -70,7 +56,7 @@ export default function ProductDetail() {
     };
 
     const handleCall = (phone) => {
-        if (phone) {
+        if (phone && phone !== '0') {
             // Log contact action
             logContactAction('phone_call', product?.product_name || product?.name);
             window.open(`tel:${phone}`, '_self');
@@ -99,7 +85,9 @@ export default function ProductDetail() {
                     url = `https://instagram.com/${cleanHandle}`;
                     break;
                 case 'facebook':
-                    url = `https://facebook.com/${cleanHandle}`;
+                    url = handle.includes('facebook.com') 
+                        ? handle 
+                        : `https://facebook.com/${cleanHandle}`;
                     break;
                 default:
                     return;
@@ -120,18 +108,32 @@ export default function ProductDetail() {
         );
     }
 
-    if (error || !product) {
+    if (!product) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <div className="text-center">
                     <h1 className="text-2xl font-bold text-gray-900 mb-4">Producto no encontrado</h1>
-                    <p className="text-gray-600 mb-6">{error || 'El producto que buscas no existe'}</p>
+                    <p className="text-gray-600 mb-6">El producto que buscas no está disponible</p>
                     <Link href="/" className="bg-orange-500 text-white px-6 py-3 rounded-md hover:bg-orange-600 transition">
                         Volver al inicio
                     </Link>
                 </div>
             </div>
         );
+    }
+
+    // Parsear coordenadas si vienen como string
+    let coordinates = null;
+    if (product.geo) {
+        try {
+            if (typeof product.geo === 'string') {
+                coordinates = JSON.parse(product.geo);
+            } else {
+                coordinates = product.geo;
+            }
+        } catch (e) {
+            console.error('Error parsing coordinates:', e);
+        }
     }
 
     return (
@@ -153,7 +155,7 @@ export default function ProductDetail() {
                                     className="flex items-center space-x-2 text-gray-600 hover:text-orange-500 transition"
                                 >
                                     <ArrowLeft className="w-5 h-5" />
-                                    <span>{search ? 'Volver a resultados' : 'Volver'}</span>
+                                    <span>{lastSearch.query ? 'Volver a resultados' : 'Volver'}</span>
                                 </Link>
                                 <div className="h-6 w-px bg-gray-300"></div>
                                 <Link href="/" className="flex items-center space-x-3">
@@ -231,7 +233,7 @@ export default function ProductDetail() {
 
                                     {/* Contact Actions */}
                                     <div className="grid grid-cols-2 gap-4 mb-6">
-                                        {product.phone && (
+                                        {product.phone && product.phone !== '0' && (
                                             <button
                                                 onClick={() => handleCall(product.phone)}
                                                 className="flex items-center justify-center space-x-2 bg-green-500 text-white px-4 py-3 rounded-md hover:bg-green-600 transition"
@@ -276,16 +278,22 @@ export default function ProductDetail() {
                                     </div>
                                 </div>
 
-                                {/* Map */}
+                                {/* Map and Contact Info */}
                                 <div>
                                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Ubicación</h3>
-                                    <Map products={[product]} selectedProduct={product} />
+                                    {coordinates ? (
+                                        <Map products={[{...product, geo: coordinates}]} selectedProduct={product} />
+                                    ) : (
+                                        <div className="bg-gray-100 rounded-lg h-64 flex items-center justify-center">
+                                            <p className="text-gray-500">Mapa no disponible</p>
+                                        </div>
+                                    )}
 
                                     {/* Contact Info */}
                                     <div className="mt-6 bg-gray-50 p-4 rounded-lg">
                                         <h4 className="font-semibold text-gray-900 mb-3">Información de contacto</h4>
                                         <div className="space-y-2 text-sm">
-                                            {product.phone && (
+                                            {product.phone && product.phone !== '0' && (
                                                 <div className="flex items-center space-x-2">
                                                     <Phone className="w-4 h-4 text-gray-400" />
                                                     <span>{product.phone}</span>

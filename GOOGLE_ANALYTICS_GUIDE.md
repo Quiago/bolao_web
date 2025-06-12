@@ -25,49 +25,58 @@ After deployment, verify tracking in Google Analytics Real-Time reports within 2
 ## 📋 What's Being Tracked
 
 ### 🔍 Search Analytics
+
 - **Search queries** - What users are searching for
 - **Search results count** - How many results each search returns
 - **Filter usage** - Which location and type filters are most used
 
 ### 🛍️ Product Analytics
+
 - **Product views** - Which products are viewed most
 - **Product engagement** - How users interact with product details
 
 ### 📞 Contact Actions
+
 - **Phone calls** - When users click to call businesses
 - **Website visits** - When users visit business websites
 - **Social media clicks** - Instagram and Facebook link clicks
 
 ### 🗺️ Map Interactions
+
 - **Marker clicks** - When users click on map markers
 - **Popup opens** - When users view business details on map
 
 ### 📱 Page Analytics
+
 - **Page views** - All page visits automatically tracked
 - **User sessions** - Session duration and engagement
 - **Traffic sources** - Where users come from
 
 ## 📊 Key Metrics You'll See
 
-### In Google Analytics Dashboard:
+### In Google Analytics Dashboard
 
 #### **Audience Overview**
+
 - Total users and sessions
 - Session duration
 - Bounce rate
 - Device breakdown (mobile/desktop)
 
 #### **Acquisition Reports**
+
 - Traffic sources (direct, search, social, referral)
 - Campaign performance
 - Search engine performance
 
 #### **Behavior Reports**
+
 - Most popular pages
 - User flow through your site
 - Site search (what users search for)
 
 #### **Custom Events** (BOLAO-specific)
+
 - Search performance
 - Product engagement
 - Contact conversions
@@ -76,18 +85,21 @@ After deployment, verify tracking in Google Analytics Real-Time reports within 2
 ## 🎯 Custom Events Reference
 
 ### Search Events
+
 ```javascript
 // Automatically tracked when users search
 logSearch(searchQuery, resultsCount)
 ```
 
 ### Product Events
+
 ```javascript
 // Tracked when users view product details
 logProductView(productId, productName)
 ```
 
 ### Contact Events
+
 ```javascript
 // Tracked when users interact with business contact info
 logContactAction('phone_call', productName)
@@ -95,6 +107,7 @@ logContactAction('website_visit', productName)
 ```
 
 ### Social Media Events
+
 ```javascript
 // Tracked when users click social media links
 logSocialClick('instagram', productName)
@@ -102,6 +115,7 @@ logSocialClick('facebook', productName)
 ```
 
 ### Map Events
+
 ```javascript
 // Tracked when users interact with the map
 logMapInteraction('marker_click', productName)
@@ -109,6 +123,7 @@ logMapInteraction('popup_open', productName)
 ```
 
 ### Filter Events
+
 ```javascript
 // Tracked when users apply search filters
 logFilterUse('location', filterValue)
@@ -117,24 +132,28 @@ logFilterUse('type', filterValue)
 
 ## 📈 Business Insights
 
-### What You Can Learn:
+### What You Can Learn
 
 #### **Popular Products & Services**
+
 - Which products get the most views
 - Which businesses get the most contact actions
 - Most searched terms
 
 #### **User Behavior Patterns**
+
 - How users navigate your site
 - Which features are used most
 - Where users drop off
 
 #### **Geographic Insights**
+
 - Which locations are searched most
 - Popular business types by area
 - User location data
 
 #### **Conversion Tracking**
+
 - Search-to-contact conversion rates
 - Most effective search terms
 - Peak usage hours
@@ -161,6 +180,7 @@ logFilterUse('type', filterValue)
 ### Enhanced E-commerce (Optional)
 
 For future implementation, you can add:
+
 - Product impressions
 - Add to favorites
 - Purchase tracking (if applicable)
@@ -170,6 +190,7 @@ For future implementation, you can add:
 ### GDPR & Privacy Considerations
 
 The implementation includes:
+
 - ✅ **Anonymized IPs** - User privacy protected
 - ✅ **No personal data collection** - Only aggregated analytics
 - ✅ **Opt-out support** - Respects user preferences
@@ -224,6 +245,7 @@ Consider adding a cookie notice for EU compliance:
 ## 📞 Support
 
 For Google Analytics setup help:
+
 - [Google Analytics Help Center](https://support.google.com/analytics)
 - [GA4 Migration Guide](https://support.google.com/analytics/answer/9744165)
 

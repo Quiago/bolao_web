@@ -3,6 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { logSearch, logFilterUse } from '../utils/analytics';
+import { useProducts } from '../contexts/ProductContext';
 
 export default function Home() {
     const [searchQuery, setSearchQuery] = useState('');
@@ -16,6 +17,9 @@ export default function Home() {
     const [types, setTypes] = useState([]);
     const [showFilters, setShowFilters] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
+    
+    // Usar el contexto
+    const { setSearchResults, setLastSearch } = useProducts();
 
     useEffect(() => {
         loadFilterOptions();
@@ -66,11 +70,31 @@ export default function Home() {
 
             const response = await fetch(`/api/search?${params}`);
             const data = await response.json();
-            const results = data.products || [];
-            setResults(results);
+            const products = data.products || [];
+            
+            // Normalizar los datos antes de guardarlos
+            const normalizedProducts = products.map(product => ({
+                ...product,
+                // Asegurar que delivery y pickup son booleanos
+                delivery: product.delivery === true || product.delivery === 'True',
+                pickup: product.pickup === true || product.pickup === 'True',
+                // Asegurar que el precio es un número
+                product_price: typeof product.product_price === 'number' 
+                    ? product.product_price 
+                    : parseFloat(product.product_price) || product.product_price
+            }));
+            
+            setResults(normalizedProducts);
+            
+            // Guardar en el contexto
+            setSearchResults(normalizedProducts);
+            setLastSearch({
+                query: query,
+                filters: searchFilters
+            });
 
             // Log search analytics
-            logSearch(query, results.length);
+            logSearch(query, normalizedProducts.length);
 
             // Log filter usage if filters are applied
             if (searchFilters.location) {
@@ -255,7 +279,7 @@ export default function Home() {
                                 {results.map((product) => (
                                     <Link
                                         key={product.id}
-                                        href={`/product/${product.id}?search=${encodeURIComponent(searchQuery)}&filters=${encodeURIComponent(JSON.stringify(filters))}`}
+                                        href={`/product/${product.id}`}
                                         className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden cursor-pointer"
                                     >
                                         <div className="relative">

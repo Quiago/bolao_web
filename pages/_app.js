@@ -2,6 +2,7 @@ import '../styles/globals.css'
 import { useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { initGA, logPageView, GA_TRACKING_ID } from '../utils/analytics'
+import { ProductProvider } from '../contexts/ProductContext'
 
 function MyApp({ Component, pageProps }) {
   const router = useRouter()
@@ -30,7 +31,11 @@ function MyApp({ Component, pageProps }) {
     }
   }, [router.events])
 
-  return <Component {...pageProps} />
+  return (
+    <ProductProvider>
+      <Component {...pageProps} />
+    </ProductProvider>
+  )
 }
 
 export default MyApp
