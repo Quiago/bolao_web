@@ -9,28 +9,34 @@ const MapComponent = ({ products = [], selectedProduct = null, onProductSelect =
     const markersRef = useRef([]);
     const [mapLoaded, setMapLoaded] = useState(false);
     const [mapError, setMapError] = useState(null);
+    const [debugInfo, setDebugInfo] = useState({});
 
-    // Cargar Leaflet y inicializar mapa
+    // Cargar Leaflet
     useEffect(() => {
         const loadLeaflet = async () => {
             if (typeof window !== 'undefined' && !L) {
                 try {
+                    console.log('Loading Leaflet...');
                     const leaflet = await import('leaflet');
                     L = leaflet.default;
 
                     // Fix para los iconos de Leaflet
                     delete L.Icon.Default.prototype._getIconUrl;
                     L.Icon.Default.mergeOptions({
-                        iconRetinaUrl: '/leaflet/marker-icon-2x.png',
-                        iconUrl: '/leaflet/marker-icon.png',
-                        shadowUrl: '/leaflet/marker-shadow.png',
+                        iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+                        iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+                        shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
                     });
 
+                    console.log('Leaflet loaded successfully');
                     initializeMap();
                 } catch (error) {
                     console.error('Error loading Leaflet:', error);
-                    setMapError('Error cargando el mapa');
+                    setMapError(`Error loading Leaflet: ${error.message}`);
+                    setDebugInfo(prev => ({ ...prev, leafletError: error.message }));
                 }
+            } else if (L) {
+                initializeMap();
             }
         };
 
@@ -49,20 +55,27 @@ const MapComponent = ({ products = [], selectedProduct = null, onProductSelect =
     }, []);
 
     const initializeMap = () => {
-        if (!mapRef.current || mapInstance.current) return;
+        if (!mapRef.current || mapInstance.current) {
+            console.log('Map already initialized or ref not ready');
+            return;
+        }
 
         try {
-            // Coordenadas de La Habana como centro por defecto
+            console.log('Initializing map...');
+            
+            // Crear el mapa
             mapInstance.current = L.map(mapRef.current, {
-                center: [23.1136, -82.3666],
-                zoom: 11,
+                center: [23.1136, -82.3666], // La Habana
+                zoom: 12,
                 zoomControl: true,
-                attributionControl: true,
-                preferCanvas: true // Better performance for many markers
+                attributionControl: true
             });
 
-            // Usar Mapbox si el token está disponible, sino OpenStreetMap
+            console.log('Map instance created');
+
+            // Agregar capa de tiles
             if (mapboxToken) {
+                console.log('Using Mapbox tiles');
                 L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=${mapboxToken}`, {
                     attribution: '© <a href="https://www.mapbox.com/">Mapbox</a> © <a href="https://www.openstreetmap.org/">OpenStreetMap</a>',
                     tileSize: 512,
@@ -70,6 +83,7 @@ const MapComponent = ({ products = [], selectedProduct = null, onProductSelect =
                     maxZoom: 18
                 }).addTo(mapInstance.current);
             } else {
+                console.log('Using OpenStreetMap tiles');
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '© <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
                     maxZoom: 18
@@ -78,164 +92,122 @@ const MapComponent = ({ products = [], selectedProduct = null, onProductSelect =
 
             setMapLoaded(true);
             setMapError(null);
+            console.log('Map initialized successfully');
         } catch (error) {
             console.error('Error initializing map:', error);
-            setMapError('Error inicializando el mapa');
+            setMapError(`Error initializing map: ${error.message}`);
+            setDebugInfo(prev => ({ ...prev, initError: error.message }));
         }
     };
 
     // Actualizar marcadores cuando cambien los productos
     useEffect(() => {
-        if (mapLoaded && mapInstance.current && L) {
+        if (mapLoaded && mapInstance.current && L && products.length > 0) {
+            console.log('Updating markers for', products.length, 'products');
             updateMarkers();
         }
     }, [mapLoaded, products, selectedProduct]);
 
     const parseCoordinates = (geoString) => {
         try {
-            if (!geoString) return null;
+            if (!geoString) {
+                console.log('No geo string provided');
+                return null;
+            }
 
-            // Parse the geo string which should be in format: "[-82.33339919218133, 23.154970416175193]"
+            console.log('Parsing coordinates:', geoString);
+            
+            // El geo string viene como "[-82.38192918071945, 23.137781719937383]"
             const coords = JSON.parse(geoString);
 
             if (Array.isArray(coords) && coords.length === 2) {
                 const [lng, lat] = coords;
 
-                // Validate coordinates are within reasonable bounds
                 if (
                     typeof lat === 'number' && typeof lng === 'number' &&
                     lat >= -90 && lat <= 90 &&
                     lng >= -180 && lng <= 180
                 ) {
+                    console.log('Parsed coordinates:', { lat, lng });
                     return { lat, lng };
                 }
             }
 
+            console.warn('Invalid coordinates format:', coords);
             return null;
         } catch (error) {
-            console.warn('Error parsing coordinates:', geoString, error);
+            console.error('Error parsing coordinates:', geoString, error);
             return null;
         }
-    };
-
-    // Simple geocoding function for Cuban addresses
-    const geocodeAddress = (address, location) => {
-        // Cuban locations mapping - you can expand this
-        const cubanLocations = {
-            'habana del este': { lat: 23.154970, lng: -82.333399 },
-            'centro habana': { lat: 23.133, lng: -82.383 },
-            'vedado': { lat: 23.133, lng: -82.383 },
-            'miramar': { lat: 23.120, lng: -82.450 },
-            'habana vieja': { lat: 23.135, lng: -82.359 },
-            'playa': { lat: 23.140, lng: -82.450 },
-            'arroyo naranjo': { lat: 23.047, lng: -82.373 },
-            'boyeros': { lat: 23.007, lng: -82.397 },
-            'plaza de la revolución': { lat: 23.131, lng: -82.383 },
-            'cerro': { lat: 23.120, lng: -82.366 },
-        };
-
-        // Try to match location first
-        if (location) {
-            const locationKey = location.toLowerCase();
-            for (const [key, coords] of Object.entries(cubanLocations)) {
-                if (locationKey.includes(key)) {
-                    // Add small random offset to avoid overlapping markers
-                    return {
-                        lat: coords.lat + (Math.random() - 0.5) * 0.01,
-                        lng: coords.lng + (Math.random() - 0.5) * 0.01
-                    };
-                }
-            }
-        }
-
-        // Try to match address
-        if (address) {
-            const addressKey = address.toLowerCase();
-            for (const [key, coords] of Object.entries(cubanLocations)) {
-                if (addressKey.includes(key)) {
-                    return {
-                        lat: coords.lat + (Math.random() - 0.5) * 0.01,
-                        lng: coords.lng + (Math.random() - 0.5) * 0.01
-                    };
-                }
-            }
-        }
-
-        // Default to central Havana with random offset
-        return {
-            lat: 23.1136 + (Math.random() - 0.5) * 0.05,
-            lng: -82.3666 + (Math.random() - 0.5) * 0.05
-        };
     };
 
     const formatPrice = (price) => {
         if (typeof price === 'number') {
             return price.toFixed(2);
         }
-        if (typeof price === 'string') {
-            const numPrice = parseFloat(price);
-            return isNaN(numPrice) ? price : numPrice.toFixed(2);
-        }
         return price;
     };
 
-    const updateMarkers = async () => {
+    const updateMarkers = () => {
+        console.log('Updating markers...');
+        
         // Limpiar marcadores existentes
         markersRef.current.forEach(marker => {
             mapInstance.current.removeLayer(marker);
         });
         markersRef.current = [];
 
-        if (products.length === 0) return;
+        if (products.length === 0) {
+            console.log('No products to display');
+            return;
+        }
 
         const bounds = L.latLngBounds();
         let hasValidCoordinates = false;
+        let successCount = 0;
+        let errorCount = 0;
 
-        for (const product of products) {
+        products.forEach((product, index) => {
             try {
-                // Parse coordinates from the geo field
-                let coordinates = parseCoordinates(product.geo);
+                // Parsear coordenadas del campo geo
+                const coordinates = parseCoordinates(product.geo);
 
                 if (!coordinates) {
-                    // Fallback to geocoding based on address and location
-                    console.log(`Geocoding address for product ${product.name}: ${product.address || product.location}`);
-                    coordinates = geocodeAddress(product.address, product.location);
+                    console.warn(`No valid coordinates for product ${index}:`, product.name);
+                    errorCount++;
+                    return;
                 }
 
                 const { lat, lng } = coordinates;
 
+                // Crear marcador
                 const marker = L.marker([lat, lng]).addTo(mapInstance.current);
 
-                // Create more detailed popup content
+                // Crear contenido del popup
                 const popupContent = `
-          <div class="p-3 min-w-[200px]">
-            <h3 class="font-semibold text-sm mb-1">${product.product_name || product.name}</h3>
-            <p class="text-xs text-gray-600 mb-1">${product.name}</p>
-            <p class="text-xs text-gray-500 mb-2">${product.location}</p>
-            ${product.address ? `<p class="text-xs text-gray-500 mb-2">${product.address}</p>` : ''}
-            <p class="text-sm font-bold text-orange-500 mb-2">$${formatPrice(product.product_price)}</p>
-            ${product.phone ? `<p class="text-xs text-gray-600">📞 ${product.phone}</p>` : ''}
-            ${product.delivery ? '<p class="text-xs text-green-600">🚚 Delivery disponible</p>' : ''}
-            ${product.pickup ? '<p class="text-xs text-blue-600">🛍️ Pickup disponible</p>' : ''}
-          </div>
-        `;
+                    <div style="padding: 10px; min-width: 200px;">
+                        <h3 style="font-weight: bold; margin-bottom: 5px;">${product.product_name}</h3>
+                        <p style="color: #666; font-size: 14px; margin-bottom: 5px;">${product.name}</p>
+                        <p style="color: #999; font-size: 12px; margin-bottom: 5px;">${product.location}</p>
+                        ${product.address ? `<p style="color: #999; font-size: 12px; margin-bottom: 5px;">${product.address}</p>` : ''}
+                        <p style="font-size: 18px; font-weight: bold; color: #f97316; margin-bottom: 5px;">$${formatPrice(product.product_price)}</p>
+                        ${product.phone && product.phone !== '0' ? `<p style="font-size: 12px;">📞 ${product.phone}</p>` : ''}
+                        ${product.delivery ? '<p style="font-size: 12px; color: #10b981;">🚚 Delivery disponible</p>' : ''}
+                        ${product.pickup ? '<p style="font-size: 12px; color: #3b82f6;">🛍️ Pickup disponible</p>' : ''}
+                    </div>
+                `;
 
-                marker.bindPopup(popupContent, {
-                    maxWidth: 250,
-                    closeButton: true,
-                    autoClose: false
-                });
+                marker.bindPopup(popupContent);
 
-                // Add analytics tracking for popup open
+                // Abrir popup si es el producto seleccionado
+                if (selectedProduct && selectedProduct.id === product.id) {
+                    marker.openPopup();
+                }
+
+                // Analytics
                 marker.on('popupopen', () => {
                     logMapInteraction('popup_open', product.product_name || product.name);
                 });
-
-                // Highlight selected product
-                if (selectedProduct && selectedProduct.id === product.id) {
-                    marker.openPopup();
-                    // You could also change marker style here if needed
-                }
 
                 if (onProductSelect) {
                     marker.on('click', () => {
@@ -247,34 +219,47 @@ const MapComponent = ({ products = [], selectedProduct = null, onProductSelect =
                 markersRef.current.push(marker);
                 bounds.extend([lat, lng]);
                 hasValidCoordinates = true;
+                successCount++;
             } catch (error) {
-                console.warn('Error processing product:', product.name, error);
+                console.error(`Error processing product ${index}:`, product.name, error);
+                errorCount++;
             }
-        }
+        });
+
+        console.log(`Markers update complete. Success: ${successCount}, Errors: ${errorCount}`);
+        setDebugInfo(prev => ({ ...prev, markersSuccess: successCount, markersError: errorCount }));
 
         // Ajustar la vista del mapa
         if (hasValidCoordinates && bounds.isValid()) {
-            // If only one marker, center on it with a good zoom level
             if (markersRef.current.length === 1) {
                 const marker = markersRef.current[0];
                 const latlng = marker.getLatLng();
-                mapInstance.current.setView(latlng, 15);
+                mapInstance.current.setView(latlng, 16);
+                console.log('Centered on single marker');
             } else {
-                // Multiple markers, fit bounds with padding
                 mapInstance.current.fitBounds(bounds, {
-                    padding: [20, 20],
+                    padding: [50, 50],
                     maxZoom: 15
                 });
+                console.log('Fitted bounds for multiple markers');
             }
-        } else if (products.length > 0 && !hasValidCoordinates) {
-            // If no valid coordinates but we have products, show default Havana view
-            mapInstance.current.setView([23.1136, -82.3666], 12);
+        } else {
+            console.warn('No valid coordinates found, keeping default view');
         }
     };
 
+    // Mostrar información de debug en desarrollo
+    const isDev = process.env.NODE_ENV === 'development';
+
     return (
         <div className="relative w-full h-full">
-            <div ref={mapRef} className="w-full h-full" />
+            <div 
+                ref={mapRef} 
+                className="w-full h-full"
+                style={{ minHeight: '256px' }} // Asegurar altura mínima
+            />
+            
+            {/* Loading state */}
             {!mapLoaded && !mapError && (
                 <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
                     <div className="text-center">
@@ -283,12 +268,25 @@ const MapComponent = ({ products = [], selectedProduct = null, onProductSelect =
                     </div>
                 </div>
             )}
+            
+            {/* Error state */}
             {mapError && (
-                <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
-                    <div className="text-center">
-                        <p className="text-red-500 mb-2">⚠️ {mapError}</p>
-                        <p className="text-gray-500 text-sm">Verifica tu conexión a internet</p>
+                <div className="absolute inset-0 bg-gray-200 flex items-center justify-center p-4">
+                    <div className="text-center max-w-sm">
+                        <p className="text-red-500 mb-2">⚠️ Error con el mapa</p>
+                        <p className="text-gray-600 text-sm mb-2">{mapError}</p>
+                        <p className="text-gray-500 text-xs">Verifica la consola para más detalles</p>
                     </div>
+                </div>
+            )}
+
+            {/* Debug info (solo en desarrollo) */}
+            {isDev && Object.keys(debugInfo).length > 0 && (
+                <div className="absolute bottom-2 left-2 bg-white p-2 rounded shadow text-xs">
+                    <div className="font-bold mb-1">Debug Info:</div>
+                    {Object.entries(debugInfo).map(([key, value]) => (
+                        <div key={key}>{key}: {value}</div>
+                    ))}
                 </div>
             )}
         </div>
