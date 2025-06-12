@@ -14,9 +14,31 @@ export default function Home() {
   const [locations, setLocations] = useState([]);
   const [types, setTypes] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
   useEffect(() => {
     loadFilterOptions();
+    
+    // Verificar si hay parámetros de búsqueda en la URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryParam = urlParams.get('q');
+    const locationParam = urlParams.get('location');
+    const typeParam = urlParams.get('type');
+    
+    if (queryParam) {
+      setSearchQuery(queryParam);
+      setFilters({
+        location: locationParam || '',
+        type: typeParam || ''
+      });
+      
+      // Ejecutar búsqueda automáticamente
+      performSearch(queryParam, {
+        location: locationParam || '',
+        type: typeParam || ''
+      });
+      setHasSearched(true);
+    }
   }, []);
 
   const loadFilterOptions = async () => {
@@ -30,15 +52,15 @@ export default function Home() {
     }
   };
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
+  const performSearch = async (query = searchQuery, searchFilters = filters) => {
+    if (!query.trim()) return;
 
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        query: searchQuery,
-        ...(filters.location && { location: filters.location }),
-        ...(filters.type && { type: filters.type })
+        query: query,
+        ...(searchFilters.location && { location: searchFilters.location }),
+        ...(searchFilters.type && { type: searchFilters.type })
       });
 
       const response = await fetch(`/api/search?${params}`);
@@ -49,6 +71,11 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSearch = async () => {
+    setHasSearched(true);
+    await performSearch();
   };
 
   const handleKeyPress = (e) => {
@@ -72,7 +99,7 @@ export default function Home() {
       <Head>
         <title>BOLAO - Encuentra lo que buscas</title>
         <meta name="description" content="Búsqueda inteligente de productos y servicios cerca de ti" />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href="/bolao-logo.png" />
       </Head>
 
       <div className="min-h-screen bg-gray-50">
@@ -81,9 +108,11 @@ export default function Home() {
             <div className="flex items-center justify-between h-16">
               <div className="flex items-center">
                 <Link href="/" className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
-                    <MapPin className="w-6 h-6 text-white" />
-                  </div>
+                  <img 
+                    src="/bolao-logo.png" 
+                    alt="BOLAO Logo" 
+                    className="w-10 h-10"
+                  />
                   <span className="text-2xl font-bold text-gray-900">BOLAO</span>
                 </Link>
               </div>
@@ -97,8 +126,16 @@ export default function Home() {
           </div>
         </header>
 
-        <section className="relative bg-gradient-to-r from-orange-500 to-red-500 py-20">
+        <section className="relative bg-gradient-to-r from-orange-500 to-red-500 py-20 overflow-hidden">
           <div className="absolute inset-0 bg-black opacity-10"></div>
+          {/* Logo de fondo */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-5">
+            <img 
+              src="/bolao-logo.png" 
+              alt="BOLAO Background" 
+              className="w-96 h-96 object-contain"
+            />
+          </div>
           <div className="relative max-w-4xl mx-auto px-4 text-center">
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
               Descubre Tu Próximo Sabor Favorito
@@ -199,13 +236,13 @@ export default function Home() {
           ) : results.length > 0 ? (
             <>
               <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                {results.length} resultados encontrados
+                {results.length} resultados encontrados para "{searchQuery}"
               </h2>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {results.map((product) => (
                   <Link
                     key={product.id}
-                    href={`/product/${product.id}`}
+                    href={`/product/${product.id}?search=${encodeURIComponent(searchQuery)}&filters=${encodeURIComponent(JSON.stringify(filters))}`}
                     className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden cursor-pointer"
                   >
                     <div className="relative">
@@ -235,21 +272,7 @@ export default function Home() {
                         <span className="text-sm">{product.location}</span>
                       </div>
                       
-                      <div className="flex items-center justify-between mt-4">
-                        <div className="flex space-x-3">
-                          {product.instagram && (
-                            <Instagram className="w-5 h-5 text-gray-400 hover:text-pink-500 cursor-pointer" />
-                          )}
-                          {product.facebook && (
-                            <Facebook className="w-5 h-5 text-gray-400 hover:text-blue-500 cursor-pointer" />
-                          )}
-                          {product.web && (
-                            <Globe className="w-5 h-5 text-gray-400 hover:text-gray-600 cursor-pointer" />
-                          )}
-                          {product.phone && (
-                            <Phone className="w-5 h-5 text-gray-400 hover:text-green-500 cursor-pointer" />
-                          )}
-                        </div>
+                      <div className="flex items-center justify-end mt-4">
                         <ChevronRight className="w-5 h-5 text-gray-400" />
                       </div>
                     </div>
@@ -257,7 +280,7 @@ export default function Home() {
                 ))}
               </div>
             </>
-          ) : searchQuery && !loading ? (
+          ) : hasSearched && results.length === 0 && !loading ? (
             <div className="text-center py-12">
               <p className="text-gray-600">No se encontraron resultados para "{searchQuery}"</p>
               <p className="text-gray-500 mt-2">Intenta con otros términos de búsqueda</p>

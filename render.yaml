@@ -1,0 +1,25 @@
+# Render.com deployment configuration for Next.js
+version: 2
+
+services:
+  - type: web
+    name: bolao-frontend
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: pserv
+          name: bolao-api
+          property: host
+      - key: NEXT_PUBLIC_MAPBOX_TOKEN
+        sync: false
+      - key: HUGGING_FACE_TOKEN
+        sync: false
+    healthCheckPath: /
+    domains:
+      - bolao-search.onrender.com

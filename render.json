@@ -1,0 +1,21 @@
+{
+  "name": "bolao-frontend",
+  "type": "web",
+  "env": "node",
+  "plan": "free",
+  "region": "oregon",
+  "buildCommand": "npm install && npm run build",
+  "startCommand": "npm run start",
+  "healthCheckPath": "/",
+  "autoDeploy": true,
+  "envVars": [
+    {
+      "key": "NODE_ENV",
+      "value": "production"
+    },
+    {
+      "key": "NEXT_PUBLIC_API_URL",
+      "value": "https://quiago-bolao-search.hf.space"
+    }
+  ]
+}
