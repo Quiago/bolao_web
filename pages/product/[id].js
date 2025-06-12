@@ -162,12 +162,14 @@ export default function ProductDetail() {
                     <div className="bg-white rounded-lg shadow-lg overflow-hidden">
                         {/* Product Header */}
                         <div className="relative">
-                            {product.logo && (
+                            {product.logo ? (
                                 <img
                                     src={product.logo}
                                     alt={product.name}
-                                    className="w-full h-64 object-cover"
+                                    className="w-full h-64 object-cover bg-gray-100"
                                 />
+                            ) : (
+                                <div className="w-full h-64 bg-gray-100"></div>
                             )}
                             <div className="absolute top-4 right-4 bg-white rounded-full px-3 py-1 shadow-md">
                                 <div className={`flex items-center space-x-1 ${getScoreColor(product.score)} text-white px-2 py-1 rounded-full text-sm font-semibold`}>

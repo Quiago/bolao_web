@@ -78,8 +78,8 @@ export default async function handler(req, res) {
                 pickup: product.pickup === 'True' || product.pickup === true,
                 // Normalizar precio
                 product_price: parseFloat(product.product_price) || product.product_price,
-                // Asegurar que tenemos una imagen
-                logo: product.logo || `/api/placeholder/300/200?text=${encodeURIComponent(product.name)}`,
+                // Si no hay logo, será undefined y se manejará en el componente
+                logo: product.logo || null,
                 // IMPORTANTE: Mantener geo como viene de la API (string o array)
                 geo: product.geo
             };
@@ -144,7 +144,7 @@ function getMockData(query) {
             instagram: '@marketrey',
             facebook: 'marketrey',
             type: 'restaurantes',
-            logo: 'https://img2.elyerromenu.com/images/market-rey/logo-y/img.webp',
+            logo: null, // Se generará placeholder automáticamente
             delivery: true,
             pickup: true,
             geo: '[-82.33339919218133, 23.154970416175193]'
@@ -163,7 +163,7 @@ function getMockData(query) {
             instagram: '@cafecentral',
             facebook: 'cafecentral',
             type: 'cafeterias',
-            logo: 'https://via.placeholder.com/300x200/8B4513/FFFFFF?text=Café+Central',
+            logo: null,
             delivery: true,
             pickup: true,
             geo: '[-82.3830, 23.1330]'
@@ -182,7 +182,7 @@ function getMockData(query) {
             instagram: '@tropical',
             facebook: 'tropical',
             type: 'heladerias',
-            logo: 'https://via.placeholder.com/300x200/87CEEB/FFFFFF?text=Heladería+Tropical',
+            logo: null,
             delivery: false,
             pickup: true,
             geo: '[-82.4500, 23.1200]'

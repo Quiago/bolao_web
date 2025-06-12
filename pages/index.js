@@ -242,7 +242,9 @@ export default function Home() {
                                     >
                                         <option value="">Todos los tipos</option>
                                         {types.map((type) => (
-                                            <option key={type} value={type}>{type}</option>
+                                            <option key={type} value={type}>
+                                                {type.charAt(0).toUpperCase() + type.slice(1)}
+                                            </option>
                                         ))}
                                     </select>
                                 </div>
@@ -289,8 +291,11 @@ export default function Home() {
                                                 <img
                                                     src={product.logo}
                                                     alt={product.name}
-                                                    className="w-full h-48 object-cover"
+                                                    className="w-full h-48 object-cover bg-gray-100"
                                                 />
+                                            )}
+                                            {!product.logo && (
+                                                <div className="w-full h-48 bg-gray-100"></div>
                                             )}
                                             <div className={`absolute top-4 right-4 ${getScoreColor(product.score)} text-white px-3 py-1 rounded-full text-sm font-semibold`}>
                                                 {(product.score * 100).toFixed(0)}% relevante
