@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { logMapInteraction } from '../utils/analytics';
 
 let L;
 
@@ -225,6 +226,11 @@ const MapComponent = ({ products = [], selectedProduct = null, onProductSelect =
                     autoClose: false
                 });
 
+                // Add analytics tracking for popup open
+                marker.on('popupopen', () => {
+                    logMapInteraction('popup_open', product.product_name || product.name);
+                });
+
                 // Highlight selected product
                 if (selectedProduct && selectedProduct.id === product.id) {
                     marker.openPopup();
@@ -233,6 +239,7 @@ const MapComponent = ({ products = [], selectedProduct = null, onProductSelect =
 
                 if (onProductSelect) {
                     marker.on('click', () => {
+                        logMapInteraction('marker_click', product.product_name || product.name);
                         onProductSelect(product);
                     });
                 }

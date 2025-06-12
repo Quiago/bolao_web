@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import Map from '../../components/Map';
+import { logProductView, logContactAction, logSocialClick } from '../../utils/analytics';
 
 export default function ProductDetail() {
     const router = useRouter();
@@ -47,6 +48,9 @@ export default function ProductDetail() {
 
             const data = await response.json();
             setProduct(data);
+
+            // Log product view analytics
+            logProductView(data.id, data.product_name || data.name);
         } catch (error) {
             console.error('Error fetching product:', error);
             setError(error.message);
@@ -67,12 +71,16 @@ export default function ProductDetail() {
 
     const handleCall = (phone) => {
         if (phone) {
+            // Log contact action
+            logContactAction('phone_call', product?.product_name || product?.name);
             window.open(`tel:${phone}`, '_self');
         }
     };
 
     const handleWebsite = (website) => {
         if (website) {
+            // Log contact action
+            logContactAction('website_visit', product?.product_name || product?.name);
             const url = website.startsWith('http') ? website : `https://${website}`;
             window.open(url, '_blank');
         }
@@ -80,6 +88,9 @@ export default function ProductDetail() {
 
     const handleSocialMedia = (platform, handle) => {
         if (handle) {
+            // Log social media interaction
+            logSocialClick(platform, product?.product_name || product?.name);
+            
             let url = '';
             const cleanHandle = handle.replace('@', '');
 

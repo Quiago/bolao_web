@@ -9,6 +9,7 @@ Frontend moderno para BOLAO, una aplicación de búsqueda semántica de producto
 - **Resultados ordenados por relevancia**: Algoritmo de búsqueda semántica
 - **Vista de detalles completa**: Con mapa, redes sociales y acciones rápidas
 - **Diseño responsive**: Funciona perfectamente en móvil y desktop
+- **📊 Analytics integrado**: Google Analytics 4 para insights de tráfico y comportamiento
 
 ## 📋 Instalación
 
@@ -39,6 +40,17 @@ vercel --prod
 ### Render.com
 - Build Command: `npm run build`
 - Start Command: `npm start`
+
+## 📊 Analytics
+
+BOLAO incluye Google Analytics 4 para obtener insights valiosos sobre el tráfico y comportamiento de usuarios.
+
+**Configuración rápida:**
+1. Obtén tu ID de Google Analytics (formato: `G-XXXXXXXXXX`)
+2. Agrega `NEXT_PUBLIC_GA_TRACKING_ID=G-TU-ID` a `.env.local`
+3. Despliega y verifica en Google Analytics
+
+Ver [GOOGLE_ANALYTICS_GUIDE.md](./GOOGLE_ANALYTICS_GUIDE.md) para documentación completa.
 
 ## 📄 Licencia
 

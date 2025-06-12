@@ -2,6 +2,7 @@ import { ChevronRight, Filter, MapPin, Search } from 'lucide-react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { logSearch, logFilterUse } from '../utils/analytics';
 
 export default function Home() {
     const [searchQuery, setSearchQuery] = useState('');
@@ -65,7 +66,19 @@ export default function Home() {
 
             const response = await fetch(`/api/search?${params}`);
             const data = await response.json();
-            setResults(data.products || []);
+            const results = data.products || [];
+            setResults(results);
+
+            // Log search analytics
+            logSearch(query, results.length);
+
+            // Log filter usage if filters are applied
+            if (searchFilters.location) {
+                logFilterUse('location', searchFilters.location);
+            }
+            if (searchFilters.type) {
+                logFilterUse('type', searchFilters.type);
+            }
         } catch (error) {
             console.error('Error searching:', error);
         } finally {
