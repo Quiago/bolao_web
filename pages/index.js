@@ -81,7 +81,9 @@ export default function Home() {
                 // Asegurar que el precio es un número
                 product_price: typeof product.product_price === 'number' 
                     ? product.product_price 
-                    : parseFloat(product.product_price) || product.product_price
+                    : parseFloat(product.product_price) || product.product_price,
+                // IMPORTANTE: NO parsear geo, dejarlo como viene de la API
+                geo: product.geo
             }));
             
             setResults(normalizedProducts);

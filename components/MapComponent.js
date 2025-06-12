@@ -108,18 +108,32 @@ const MapComponent = ({ products = [], selectedProduct = null, onProductSelect =
         }
     }, [mapLoaded, products, selectedProduct]);
 
-    const parseCoordinates = (geoString) => {
+    const parseCoordinates = (geo) => {
         try {
-            if (!geoString) {
-                console.log('No geo string provided');
+            if (!geo) {
+                console.log('No geo data provided');
                 return null;
             }
 
-            console.log('Parsing coordinates:', geoString);
+            let coords;
             
-            // El geo string viene como "[-82.38192918071945, 23.137781719937383]"
-            const coords = JSON.parse(geoString);
+            // Si ya es un array, usarlo directamente
+            if (Array.isArray(geo)) {
+                coords = geo;
+                console.log('Geo is already an array:', coords);
+            } 
+            // Si es un string, parsearlo
+            else if (typeof geo === 'string') {
+                console.log('Parsing geo string:', geo);
+                coords = JSON.parse(geo);
+            } 
+            // Si es otro tipo, no es válido
+            else {
+                console.warn('Invalid geo type:', typeof geo, geo);
+                return null;
+            }
 
+            // Validar que sea un array con dos números
             if (Array.isArray(coords) && coords.length === 2) {
                 const [lng, lat] = coords;
 
@@ -128,7 +142,7 @@ const MapComponent = ({ products = [], selectedProduct = null, onProductSelect =
                     lat >= -90 && lat <= 90 &&
                     lng >= -180 && lng <= 180
                 ) {
-                    console.log('Parsed coordinates:', { lat, lng });
+                    console.log('Valid coordinates:', { lat, lng });
                     return { lat, lng };
                 }
             }
@@ -136,7 +150,7 @@ const MapComponent = ({ products = [], selectedProduct = null, onProductSelect =
             console.warn('Invalid coordinates format:', coords);
             return null;
         } catch (error) {
-            console.error('Error parsing coordinates:', geoString, error);
+            console.error('Error parsing coordinates:', geo, error);
             return null;
         }
     };

@@ -1,200 +1,168 @@
+import { useEffect, useRef, useState } from 'react';
 import Head from 'next/head';
-import { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 
-// Importar Map dinámicamente
-const Map = dynamic(
-    () => import('../components/Map'),
-    { 
-        ssr: false,
-        loading: () => (
-            <div className="w-full h-64 bg-gray-200 rounded-lg flex items-center justify-center">
-                <p className="text-gray-500">Cargando componente de mapa...</p>
-            </div>
-        )
-    }
-);
-
-export default function MapTest() {
-    const [testData, setTestData] = useState(null);
-    const [leafletLoaded, setLeafletLoaded] = useState(false);
-    const [cssLoaded, setCssLoaded] = useState(false);
-
-    // Datos de prueba con las coordenadas que compartiste
-    const mockProducts = [
-        {
-            id: "2026",
-            product_name: "Croissant",
-            name: "TerrazaCafé",
-            type: "cafes",
-            product_price: 700,
-            location: "Plaza, La Habana",
-            address: "Calle L número 502 entre 27 y avenida universidad. Vedado",
-            phone: "5352839213",
-            delivery: true,
-            pickup: true,
-            geo: "[-82.38192918071945, 23.137781719937383]"
-        },
-        {
-            id: "4626",
-            product_name: "Croissant TODAY",
-            name: "Alexin",
-            type: "cafeterias",
-            product_price: 180,
-            location: "Diez de Octubre, La Habana",
-            address: "San Francisco 203 e/ Lawton y San Anastasio",
-            phone: "5351952997",
-            delivery: false,
-            pickup: true,
-            geo: "[-82.35978920727577, 23.093554501966015]"
-        }
-    ];
+export default function TestRealMap() {
+    const mapRef = useRef(null);
+    const mapInstance = useRef(null);
+    const [mapError, setMapError] = useState(null);
+    const [mapSuccess, setMapSuccess] = useState(false);
 
     useEffect(() => {
-        // Verificar si Leaflet está disponible
-        const checkLeaflet = async () => {
+        if (typeof window === 'undefined') return;
+
+        const initMap = async () => {
             try {
-                const L = await import('leaflet');
-                setLeafletLoaded(true);
-                console.log('✓ Leaflet cargado correctamente');
-            } catch (error) {
-                console.error('✗ Error cargando Leaflet:', error);
-            }
-        };
+                console.log('1. Iniciando carga de Leaflet...');
+                const L = (await import('leaflet')).default;
+                console.log('2. Leaflet cargado exitosamente');
 
-        // Verificar si los estilos CSS están cargados
-        const checkCSS = () => {
-            const sheets = document.styleSheets;
-            let found = false;
-            for (let i = 0; i < sheets.length; i++) {
-                try {
-                    if (sheets[i].href && sheets[i].href.includes('leaflet')) {
-                        found = true;
-                        break;
-                    }
-                } catch (e) {
-                    // Ignorar errores de CORS
+                if (mapInstance.current) {
+                    console.log('3. Mapa ya existe, saliendo...');
+                    return;
                 }
+
+                console.log('4. Creando instancia del mapa...');
+                const map = L.map(mapRef.current).setView([23.1136, -82.3666], 12);
+                mapInstance.current = map;
+                console.log('5. Mapa creado');
+
+                console.log('6. Agregando capa de tiles...');
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+                console.log('7. Capa de tiles agregada');
+
+                // Datos reales del producto que está causando problemas
+                const testProduct = {
+                    name: "Crispy Chicken",
+                    product_name: "Café expresso",
+                    geo: [-82.37602472305299, 23.089443592479565], // Array directo
+                    address: "Tu dirección aquí"
+                };
+
+                console.log('8. Procesando producto:', testProduct);
+
+                // Verificar el tipo de geo
+                console.log('9. Tipo de geo:', typeof testProduct.geo, 'Es array:', Array.isArray(testProduct.geo));
+
+                let lat, lng;
+                if (Array.isArray(testProduct.geo)) {
+                    [lng, lat] = testProduct.geo;
+                    console.log('10. Coordenadas extraídas - Lat:', lat, 'Lng:', lng);
+                } else {
+                    console.error('10. ERROR: geo no es un array');
+                    return;
+                }
+
+                console.log('11. Creando marcador...');
+                const marker = L.marker([lat, lng]).addTo(map);
+                
+                const popupContent = `
+                    <div style="padding: 10px;">
+                        <h3 style="margin: 0 0 5px 0;">${testProduct.product_name}</h3>
+                        <p style="margin: 0; color: #666;">${testProduct.name}</p>
+                        <p style="margin: 5px 0 0 0; font-size: 12px;">
+                            Lat: ${lat.toFixed(6)}<br>
+                            Lng: ${lng.toFixed(6)}
+                        </p>
+                    </div>
+                `;
+                
+                marker.bindPopup(popupContent).openPopup();
+                console.log('12. Marcador creado y popup abierto');
+
+                // Centrar el mapa en el marcador
+                map.setView([lat, lng], 15);
+                console.log('13. Mapa centrado en el marcador');
+
+                setMapSuccess(true);
+                setMapError(null);
+
+            } catch (error) {
+                console.error('ERROR en paso del mapa:', error);
+                setMapError(error.message);
+                setMapSuccess(false);
             }
-            setCssLoaded(found);
-            console.log(found ? '✓ CSS de Leaflet encontrado' : '✗ CSS de Leaflet no encontrado');
         };
 
-        checkLeaflet();
-        checkCSS();
-    }, []);
+        setTimeout(initMap, 100);
 
-    const parseGeo = (geoString) => {
-        try {
-            const coords = JSON.parse(geoString);
-            return { success: true, coords };
-        } catch (error) {
-            return { success: false, error: error.message };
-        }
-    };
+        return () => {
+            if (mapInstance.current) {
+                mapInstance.current.remove();
+                mapInstance.current = null;
+            }
+        };
+    }, []);
 
     return (
         <>
             <Head>
-                <title>Test de Mapa - BOLAO</title>
+                <title>Test de Mapa con Datos Reales</title>
+                <link
+                    rel="stylesheet"
+                    href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+                />
             </Head>
 
-            <div className="min-h-screen bg-gray-50 p-8">
-                <div className="max-w-6xl mx-auto">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-8">Diagnóstico del Mapa</h1>
-
-                    {/* Status de componentes */}
-                    <div className="bg-white rounded-lg shadow p-6 mb-6">
-                        <h2 className="text-xl font-semibold mb-4">Estado de Componentes</h2>
-                        <div className="space-y-2">
-                            <div className="flex items-center">
-                                <span className={`w-4 h-4 rounded-full mr-2 ${leafletLoaded ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                                <span>Leaflet: {leafletLoaded ? 'Cargado ✓' : 'No cargado ✗'}</span>
-                            </div>
-                            <div className="flex items-center">
-                                <span className={`w-4 h-4 rounded-full mr-2 ${cssLoaded ? 'bg-green-500' : 'bg-yellow-500'}`}></span>
-                                <span>CSS: {cssLoaded ? 'Detectado ✓' : 'No detectado (verificar manualmente)'}</span>
-                            </div>
-                            <div className="flex items-center">
-                                <span className={`w-4 h-4 rounded-full mr-2 ${process.env.NEXT_PUBLIC_MAPBOX_TOKEN ? 'bg-green-500' : 'bg-yellow-500'}`}></span>
-                                <span>Mapbox Token: {process.env.NEXT_PUBLIC_MAPBOX_TOKEN ? 'Configurado ✓' : 'No configurado (usando OSM)'}</span>
-                            </div>
+            <div className="p-8">
+                <h1 className="text-2xl font-bold mb-4">Test de Mapa con Producto Real</h1>
+                
+                {/* Estado del mapa */}
+                <div className="mb-4">
+                    {mapError && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                            <strong>Error:</strong> {mapError}
                         </div>
-                    </div>
-
-                    {/* Test de parsing de coordenadas */}
-                    <div className="bg-white rounded-lg shadow p-6 mb-6">
-                        <h2 className="text-xl font-semibold mb-4">Test de Coordenadas</h2>
-                        <div className="space-y-3">
-                            {mockProducts.map(product => {
-                                const parsed = parseGeo(product.geo);
-                                return (
-                                    <div key={product.id} className="border-b pb-3">
-                                        <p className="font-medium">{product.name}</p>
-                                        <p className="text-sm text-gray-600">Geo: {product.geo}</p>
-                                        <p className="text-sm">
-                                            Parsing: {parsed.success ? 
-                                                <span className="text-green-600">✓ Exitoso - Lat: {parsed.coords[1]}, Lng: {parsed.coords[0]}</span> : 
-                                                <span className="text-red-600">✗ Error: {parsed.error}</span>
-                                            }
-                                        </p>
-                                    </div>
-                                );
-                            })}
+                    )}
+                    {mapSuccess && (
+                        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+                            ✓ Mapa cargado exitosamente
                         </div>
-                    </div>
+                    )}
+                </div>
 
-                    {/* Mapa de prueba simple */}
-                    <div className="bg-white rounded-lg shadow p-6 mb-6">
-                        <h2 className="text-xl font-semibold mb-4">Mapa Simple (1 producto)</h2>
-                        <div className="h-64 border border-gray-300 rounded">
-                            <Map 
-                                products={[mockProducts[0]]} 
-                                selectedProduct={mockProducts[0]}
-                            />
-                        </div>
-                    </div>
+                {/* Información del producto */}
+                <div className="mb-4 p-4 bg-gray-100 rounded">
+                    <h2 className="font-bold mb-2">Datos del producto de prueba:</h2>
+                    <pre className="text-sm">
+{`{
+  name: "Crispy Chicken",
+  product_name: "Café expresso",
+  geo: [-82.37602472305299, 23.089443592479565],
+  tipo_geo: "${typeof [-82.37602472305299, 23.089443592479565]}",
+  es_array: ${Array.isArray([-82.37602472305299, 23.089443592479565])}
+}`}
+                    </pre>
+                </div>
 
-                    {/* Mapa con múltiples marcadores */}
-                    <div className="bg-white rounded-lg shadow p-6 mb-6">
-                        <h2 className="text-xl font-semibold mb-4">Mapa con Múltiples Marcadores</h2>
-                        <div className="h-64 border border-gray-300 rounded">
-                            <Map 
-                                products={mockProducts}
-                            />
-                        </div>
-                    </div>
+                {/* El mapa */}
+                <div 
+                    ref={mapRef} 
+                    style={{ 
+                        height: '400px', 
+                        width: '100%',
+                        border: '2px solid #ccc',
+                        borderRadius: '8px',
+                        backgroundColor: '#f0f0f0'
+                    }}
+                />
 
-                    {/* Instrucciones de solución */}
-                    <div className="bg-blue-50 rounded-lg p-6">
-                        <h2 className="text-xl font-semibold mb-4 text-blue-900">Solución de Problemas</h2>
-                        <div className="space-y-3 text-sm text-blue-800">
-                            <div>
-                                <p className="font-semibold">Si el mapa no se muestra:</p>
-                                <ol className="list-decimal list-inside ml-4 space-y-1">
-                                    <li>Verifica que hayas instalado leaflet: <code className="bg-blue-100 px-1 rounded">npm install leaflet</code></li>
-                                    <li>Asegúrate de que los estilos CSS estén importados en <code className="bg-blue-100 px-1 rounded">styles/globals.css</code></li>
-                                    <li>Revisa la consola del navegador para errores</li>
-                                    <li>Verifica que las coordenadas sean válidas (formato: [lng, lat])</li>
-                                </ol>
-                            </div>
-                            
-                            <div>
-                                <p className="font-semibold">Si los marcadores no aparecen:</p>
-                                <ol className="list-decimal list-inside ml-4 space-y-1">
-                                    <li>Verifica que el campo geo contenga coordenadas válidas</li>
-                                    <li>Asegúrate de que las coordenadas estén en formato JSON string</li>
-                                    <li>Revisa los logs en la consola para ver el parsing de coordenadas</li>
-                                </ol>
-                            </div>
+                {/* Instrucciones */}
+                <div className="mt-6 p-4 bg-blue-50 rounded">
+                    <h3 className="font-bold mb-2">¿Qué debería ver?</h3>
+                    <ul className="list-disc list-inside text-sm space-y-1">
+                        <li>Un mapa centrado en las coordenadas del producto</li>
+                        <li>Un marcador con un popup mostrando "Café expresso - Crispy Chicken"</li>
+                        <li>Mensajes en la consola mostrando cada paso del proceso</li>
+                    </ul>
+                </div>
 
-                            <div className="mt-4 p-3 bg-yellow-100 rounded">
-                                <p className="font-semibold text-yellow-900">Nota importante:</p>
-                                <p className="text-yellow-800">Las coordenadas vienen en formato [longitud, latitud] (ej: [-82.38, 23.13]). 
-                                Este es el formato estándar de GeoJSON que usa Mapbox.</p>
-                            </div>
-                        </div>
-                    </div>
+                {/* Debug info */}
+                <div className="mt-4 p-4 bg-yellow-50 rounded">
+                    <h3 className="font-bold mb-2">Revisa la consola del navegador</h3>
+                    <p className="text-sm">Deberías ver mensajes numerados del 1 al 13 mostrando el progreso.</p>
+                    <p className="text-sm mt-2">Si el mapa funciona aquí pero no en tu componente, el problema está en la integración.</p>
                 </div>
             </div>
         </>

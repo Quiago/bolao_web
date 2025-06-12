@@ -122,20 +122,6 @@ export default function ProductDetail() {
         );
     }
 
-    // Parsear coordenadas si vienen como string
-    let coordinates = null;
-    if (product.geo) {
-        try {
-            if (typeof product.geo === 'string') {
-                coordinates = JSON.parse(product.geo);
-            } else {
-                coordinates = product.geo;
-            }
-        } catch (e) {
-            console.error('Error parsing coordinates:', e);
-        }
-    }
-
     return (
         <>
             <Head>
@@ -281,13 +267,13 @@ export default function ProductDetail() {
                                 {/* Map and Contact Info */}
                                 <div>
                                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Ubicación</h3>
-                                    {coordinates ? (
-                                        <Map products={[{...product, geo: coordinates}]} selectedProduct={product} />
-                                    ) : (
-                                        <div className="bg-gray-100 rounded-lg h-64 flex items-center justify-center">
-                                            <p className="text-gray-500">Mapa no disponible</p>
-                                        </div>
-                                    )}
+                                    {/* Pasar el producto completo sin modificar geo */}
+                                    <Map 
+                                        products={[product]} 
+                                        selectedProduct={product}
+                                        height="h-80"
+                                        className="mb-4"
+                                    />
 
                                     {/* Contact Info */}
                                     <div className="mt-6 bg-gray-50 p-4 rounded-lg">
