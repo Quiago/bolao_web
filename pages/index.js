@@ -1,9 +1,10 @@
-import { ChevronRight, Filter, MapPin, Search } from 'lucide-react';
+import { ChevronRight, Filter, MapPin, Search, MessageSquare } from 'lucide-react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useProducts } from '../contexts/ProductContext';
 import { logFilterUse, logSearch } from '../utils/analytics';
+import ChatPanel from '../components/ChatPanel';
 
 export default function Home() {
     const [searchQuery, setSearchQuery] = useState('');
@@ -17,6 +18,7 @@ export default function Home() {
     const [types, setTypes] = useState([]);
     const [showFilters, setShowFilters] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
+    const [showChat, setShowChat] = useState(false);
 
     // Usar el contexto
     const { setSearchResults, setLastSearch } = useProducts();
@@ -199,6 +201,12 @@ export default function Home() {
                             >
                                 Buscar
                             </button>
+                            <button
+                                onClick={() => setShowChat(true)}
+                                className="bg-blue-500 text-white px-4 py-3 rounded-md hover:bg-blue-600 transition font-semibold ml-2"
+                            >
+                                <MessageSquare className="w-5 h-5 inline-block mr-1" /> Chat
+                            </button>
                         </div>
                     </div>
                 </section>
@@ -332,6 +340,7 @@ export default function Home() {
                         </div>
                     ) : null}
                 </section>
+                {showChat && <ChatPanel onClose={() => setShowChat(false)} />}
             </div>
         </>
     );
