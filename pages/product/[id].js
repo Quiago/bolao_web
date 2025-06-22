@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import Map from '../../components/Map';
-import { logProductView, logContactAction, logSocialClick } from '../../utils/analytics';
 import { useProducts } from '../../contexts/ProductContext';
+import { logContactAction, logProductView, logSocialClick } from '../../utils/analytics';
 
 export default function ProductDetail() {
     const router = useRouter();
@@ -18,11 +18,11 @@ export default function ProductDetail() {
         if (id) {
             // Intentar obtener el producto del contexto
             const productFromContext = getProductById(id);
-            
+
             if (productFromContext) {
                 setProduct(productFromContext);
                 setLoading(false);
-                
+
                 // Log product view analytics
                 logProductView(productFromContext.id, productFromContext.product_name || productFromContext.name);
             } else {
@@ -76,7 +76,7 @@ export default function ProductDetail() {
         if (handle) {
             // Log social media interaction
             logSocialClick(platform, product?.product_name || product?.name);
-            
+
             let url = '';
             const cleanHandle = handle.replace('@', '');
 
@@ -85,8 +85,8 @@ export default function ProductDetail() {
                     url = `https://instagram.com/${cleanHandle}`;
                     break;
                 case 'facebook':
-                    url = handle.includes('facebook.com') 
-                        ? handle 
+                    url = handle.includes('facebook.com')
+                        ? handle
                         : `https://facebook.com/${cleanHandle}`;
                     break;
                 default:
@@ -187,7 +187,9 @@ export default function ProductDetail() {
                                         {product.product_name}
                                     </h1>
                                     <h2 className="text-xl text-gray-600 mb-4">{product.name}</h2>
-
+                                    {product.description && (
+                                        <p className="text-gray-700 text-base mb-4">{product.description}</p>
+                                    )}
                                     <div className="text-4xl font-bold text-orange-500 mb-6">
                                         {formatPrice(product.product_price)}
                                     </div>
@@ -270,8 +272,8 @@ export default function ProductDetail() {
                                 <div>
                                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Ubicación</h3>
                                     {/* Pasar el producto completo sin modificar geo */}
-                                    <Map 
-                                        products={[product]} 
+                                    <Map
+                                        products={[product]}
                                         selectedProduct={product}
                                         height="h-80"
                                         className="mb-4"

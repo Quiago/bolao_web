@@ -81,11 +81,12 @@ export default async function handler(req, res) {
                 // Si no hay logo, será undefined y se manejará en el componente
                 logo: product.logo || null,
                 // IMPORTANTE: Mantener geo como viene de la API (string o array)
-                geo: product.geo
+                geo: product.geo,
+                description: product.description || '',
             };
 
             // Log para debugging
-            console.log(`Product: ${product.name} - ${product.product_name} => ID: ${processedProduct.id}, Geo type: ${typeof product.geo}`);
+            console.log(`Product: ${product.name} - ${product.product_name} => ID: ${processedProduct.id}, Geo type: ${typeof product.geo}, Description: ${processedProduct.description}`);
             
             return processedProduct;
         });

@@ -2,8 +2,8 @@ import { ChevronRight, Filter, MapPin, Search } from 'lucide-react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { logSearch, logFilterUse } from '../utils/analytics';
 import { useProducts } from '../contexts/ProductContext';
+import { logFilterUse, logSearch } from '../utils/analytics';
 
 export default function Home() {
     const [searchQuery, setSearchQuery] = useState('');
@@ -17,7 +17,7 @@ export default function Home() {
     const [types, setTypes] = useState([]);
     const [showFilters, setShowFilters] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
-    
+
     // Usar el contexto
     const { setSearchResults, setLastSearch } = useProducts();
 
@@ -71,7 +71,7 @@ export default function Home() {
             const response = await fetch(`/api/search?${params}`);
             const data = await response.json();
             const products = data.products || [];
-            
+
             // Normalizar los datos antes de guardarlos
             const normalizedProducts = products.map(product => ({
                 ...product,
@@ -79,15 +79,15 @@ export default function Home() {
                 delivery: product.delivery === true || product.delivery === 'True',
                 pickup: product.pickup === true || product.pickup === 'True',
                 // Asegurar que el precio es un número
-                product_price: typeof product.product_price === 'number' 
-                    ? product.product_price 
+                product_price: typeof product.product_price === 'number'
+                    ? product.product_price
                     : parseFloat(product.product_price) || product.product_price,
                 // IMPORTANTE: NO parsear geo, dejarlo como viene de la API
                 geo: product.geo
             }));
-            
+
             setResults(normalizedProducts);
-            
+
             // Guardar en el contexto
             setSearchResults(normalizedProducts);
             setLastSearch({
@@ -307,6 +307,7 @@ export default function Home() {
                                                 {product.product_name}
                                             </h3>
                                             <p className="text-gray-600 mb-2">{product.name}</p>
+                                            {product.description && <p className="text-gray-700 text-sm mb-2">{product.description}</p>}
                                             <p className="text-2xl font-bold text-orange-500 mb-3">
                                                 {formatPrice(product.product_price)}
                                             </p>
