@@ -1,10 +1,10 @@
-import { ChevronRight, Filter, MapPin, Search, MessageSquare } from 'lucide-react';
+import { ChevronRight, Filter, MapPin, MessageSquare, Search } from 'lucide-react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import ChatPanel from '../components/ChatPanel';
 import { useProducts } from '../contexts/ProductContext';
 import { logFilterUse, logSearch } from '../utils/analytics';
-import ChatPanel from '../components/ChatPanel';
 
 export default function Home() {
     const [searchQuery, setSearchQuery] = useState('');
