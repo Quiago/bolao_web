@@ -1,4 +1,4 @@
-import { ChevronRight, Filter, MapPin, MessageSquare, Search } from 'lucide-react';
+import { ChevronRight, Filter, Mail, MapPin, MessageSquare, Phone, Search, X } from 'lucide-react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -19,6 +19,7 @@ export default function Home() {
     const [showFilters, setShowFilters] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
     const [showChat, setShowChat] = useState(false);
+    const [showContact, setShowContact] = useState(false);
 
     // Usar el contexto
     const { setSearchResults, setLastSearch } = useProducts();
@@ -158,10 +159,12 @@ export default function Home() {
                                 </Link>
                             </div>
                             <nav className="hidden md:flex space-x-8">
-                                <a href="#" className="text-gray-700 hover:text-orange-500 transition">Inicio</a>
-                                <a href="#" className="text-gray-700 hover:text-orange-500 transition">Categorías</a>
-                                <a href="#" className="text-gray-700 hover:text-orange-500 transition">Ofertas</a>
-                                <a href="#" className="text-gray-700 hover:text-orange-500 transition">Contacto</a>
+                                <button
+                                    onClick={() => setShowContact(true)}
+                                    className="text-gray-700 hover:text-orange-500 transition"
+                                >
+                                    Contacto
+                                </button>
                             </nav>
                         </div>
                     </div>
@@ -185,28 +188,33 @@ export default function Home() {
                             Explora un mundo de delicias culinarias con nuestra búsqueda intuitiva
                         </p>
 
-                        <div className="bg-white rounded-lg shadow-lg p-2 flex items-center">
-                            <Search className="w-6 h-6 text-gray-400 ml-3" />
-                            <input
-                                type="text"
-                                placeholder="¿Qué estás buscando? Ej: hamburguesa, café, helado..."
-                                className="flex-1 px-4 py-3 text-gray-700 focus:outline-none"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                onKeyPress={handleKeyPress}
-                            />
-                            <button
-                                onClick={handleSearch}
-                                className="bg-orange-500 text-white px-6 py-3 rounded-md hover:bg-orange-600 transition font-semibold"
-                            >
-                                Buscar
-                            </button>
-                            <button
-                                onClick={() => setShowChat(true)}
-                                className="bg-blue-500 text-white px-4 py-3 rounded-md hover:bg-blue-600 transition font-semibold ml-2"
-                            >
-                                <MessageSquare className="w-5 h-5 inline-block mr-1" /> Chat
-                            </button>
+                        <div className="bg-white rounded-lg shadow-lg p-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                            <div className="flex items-center flex-1">
+                                <Search className="w-6 h-6 text-gray-400 ml-3" />
+                                <input
+                                    type="text"
+                                    placeholder="¿Qué estás buscando? Ej: hamburguesa, café, helado..."
+                                    className="flex-1 px-4 py-3 text-gray-700 focus:outline-none"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    onKeyPress={handleKeyPress}
+                                />
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleSearch}
+                                    className="bg-orange-500 text-white px-6 py-3 rounded-md hover:bg-orange-600 transition font-semibold flex-1 sm:flex-none"
+                                >
+                                    Buscar
+                                </button>
+                                <button
+                                    onClick={() => setShowChat(true)}
+                                    className="bg-blue-500 text-white px-4 py-3 rounded-md hover:bg-blue-600 transition font-semibold flex items-center justify-center"
+                                >
+                                    <MessageSquare className="w-5 h-5 sm:mr-1" />
+                                    <span className="hidden sm:inline">Chat</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -341,6 +349,67 @@ export default function Home() {
                     ) : null}
                 </section>
                 {showChat && <ChatPanel onClose={() => setShowChat(false)} />}
+
+                {/* Contact Modal */}
+                {showContact && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-xl font-bold text-gray-900">Contacto</h2>
+                                <button
+                                    onClick={() => setShowContact(false)}
+                                    className="text-gray-500 hover:text-gray-700"
+                                >
+                                    <X className="w-6 h-6" />
+                                </button>
+                            </div>
+
+                            <div className="space-y-4">
+                                <p className="text-gray-600">
+                                    ¿Tienes alguna pregunta o sugerencia? ¡No dudes en contactarme!
+                                </p>
+
+                                <div className="space-y-3">
+                                    <div className="flex items-center space-x-3">
+                                        <div className="bg-orange-100 p-2 rounded-full">
+                                            <Phone className="w-5 h-5 text-orange-600" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-gray-500">Teléfono</p>
+                                            <a
+                                                href="tel:+5354825243"
+                                                className="text-gray-900 font-medium hover:text-orange-600 transition"
+                                            >
+                                                +53 54825243
+                                            </a>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center space-x-3">
+                                        <div className="bg-orange-100 p-2 rounded-full">
+                                            <Mail className="w-5 h-5 text-orange-600" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-gray-500">Email</p>
+                                            <a
+                                                href="mailto:cquiala12@gmail.com"
+                                                className="text-gray-900 font-medium hover:text-orange-600 transition"
+                                            >
+                                                cquiala12@gmail.com
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-4 border-t">
+                                    <p className="text-xs text-gray-500 text-center">
+                                        Desarrollado con ❤️ para la comunidad cubana
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </>
     );

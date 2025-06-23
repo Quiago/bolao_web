@@ -31,7 +31,7 @@ Tu tarea es:
 2. Extraer términos de búsqueda específicos para usar en nuestra API
 3. Determinar si necesitas buscar información específica
 
-IMPORTANTE: Responde ÚNICAMENTE con un objeto JSON válido, sin markdown, sin bloques de código, sin explicaciones adicionales.
+IMPORTANTE: Responde ÚNICAMENTE con un objeto JSON válido, sin markdown ni **, sin bloques de código, sin explicaciones adicionales y no iventes información que no devuelva la api
 
 Formato exacto:
 {"searchQuery": "términos de búsqueda específicos", "needsSearch": true, "category": "tipo de establecimiento si es relevante", "location": "ubicación si es mencionada", "intent": "descripción breve de lo que busca el usuario"}
