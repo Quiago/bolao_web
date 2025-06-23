@@ -49,6 +49,26 @@ export default function Home() {
         }
     }, []);
 
+    // Handle keyboard events for contact modal
+    useEffect(() => {
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape' && showContact) {
+                setShowContact(false);
+            }
+        };
+
+        if (showContact) {
+            document.addEventListener('keydown', handleKeyDown);
+            // Prevent body scroll when modal is open
+            document.body.style.overflow = 'hidden';
+        }
+
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+            document.body.style.overflow = 'unset';
+        };
+    }, [showContact]);
+
     const loadFilterOptions = async () => {
         try {
             const response = await fetch('/api/filters');
@@ -158,6 +178,8 @@ export default function Home() {
                                     <span className="text-2xl font-bold text-gray-900">BOLAO</span>
                                 </Link>
                             </div>
+
+                            {/* Desktop Navigation */}
                             <nav className="hidden md:flex space-x-8">
                                 <button
                                     onClick={() => setShowContact(true)}
@@ -166,6 +188,18 @@ export default function Home() {
                                     Contacto
                                 </button>
                             </nav>
+
+                            {/* Mobile Contact Button */}
+                            <div className="md:hidden">
+                                <button
+                                    onClick={() => setShowContact(true)}
+                                    className="bg-orange-500 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors flex items-center space-x-1.5 touch-manipulation"
+                                >
+                                    <Phone className="w-4 h-4" />
+                                    <span className="hidden xs:inline">Contacto</span>
+                                    <span className="xs:hidden">📞</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </header>
@@ -352,48 +386,57 @@ export default function Home() {
 
                 {/* Contact Modal */}
                 {showContact && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-xl font-bold text-gray-900">Contacto</h2>
+                    <div
+                        className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4 lg:p-8"
+                        onClick={(e) => e.target === e.currentTarget && setShowContact(false)}
+                    >
+                        <div
+                            className="bg-white rounded-lg shadow-xl max-w-md w-full mx-2 sm:mx-4 p-4 sm:p-6 lg:p-8 max-h-[90vh] sm:max-h-screen overflow-y-auto"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby="contact-modal-title"
+                        >
+                            <div className="flex items-center justify-between mb-4 sm:mb-6">
+                                <h2 id="contact-modal-title" className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">Contacto</h2>
                                 <button
                                     onClick={() => setShowContact(false)}
-                                    className="text-gray-500 hover:text-gray-700"
+                                    className="text-gray-500 hover:text-gray-700 p-2 -m-2 rounded-full hover:bg-gray-100 transition-colors touch-manipulation"
+                                    aria-label="Cerrar modal de contacto"
                                 >
-                                    <X className="w-6 h-6" />
+                                    <X className="w-5 h-5 sm:w-6 sm:h-6" />
                                 </button>
                             </div>
 
-                            <div className="space-y-4">
-                                <p className="text-gray-600">
+                            <div className="space-y-4 sm:space-y-6">
+                                <p className="text-gray-600 text-sm sm:text-base leading-relaxed">
                                     ¿Tienes alguna pregunta o sugerencia? ¡No dudes en contactarme!
                                 </p>
 
-                                <div className="space-y-3">
-                                    <div className="flex items-center space-x-3">
-                                        <div className="bg-orange-100 p-2 rounded-full">
-                                            <Phone className="w-5 h-5 text-orange-600" />
+                                <div className="space-y-3 sm:space-y-4">
+                                    <div className="flex items-start space-x-3 sm:space-x-4 p-3 rounded-lg hover:bg-gray-50 transition-colors touch-manipulation">
+                                        <div className="bg-orange-100 p-2.5 sm:p-3 rounded-full flex-shrink-0">
+                                            <Phone className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
                                         </div>
-                                        <div>
-                                            <p className="text-sm text-gray-500">Teléfono</p>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs sm:text-sm font-medium text-gray-500 mb-1">Teléfono</p>
                                             <a
                                                 href="tel:+5354825243"
-                                                className="text-gray-900 font-medium hover:text-orange-600 transition"
+                                                className="text-gray-900 font-semibold hover:text-orange-600 transition-colors text-base sm:text-lg touch-manipulation focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded block"
                                             >
                                                 +53 54825243
                                             </a>
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center space-x-3">
-                                        <div className="bg-orange-100 p-2 rounded-full">
-                                            <Mail className="w-5 h-5 text-orange-600" />
+                                    <div className="flex items-start space-x-3 sm:space-x-4 p-3 rounded-lg hover:bg-gray-50 transition-colors touch-manipulation">
+                                        <div className="bg-orange-100 p-2.5 sm:p-3 rounded-full flex-shrink-0">
+                                            <Mail className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
                                         </div>
-                                        <div>
-                                            <p className="text-sm text-gray-500">Email</p>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs sm:text-sm font-medium text-gray-500 mb-1">Email</p>
                                             <a
                                                 href="mailto:cquiala12@gmail.com"
-                                                className="text-gray-900 font-medium hover:text-orange-600 transition"
+                                                className="text-gray-900 font-semibold hover:text-orange-600 transition-colors text-base sm:text-lg break-all touch-manipulation focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 rounded block"
                                             >
                                                 cquiala12@gmail.com
                                             </a>
@@ -401,10 +444,20 @@ export default function Home() {
                                     </div>
                                 </div>
 
-                                <div className="pt-4 border-t">
-                                    <p className="text-xs text-gray-500 text-center">
+                                <div className="pt-4 sm:pt-6 border-t">
+                                    <p className="text-xs sm:text-sm text-gray-500 text-center leading-relaxed">
                                         Desarrollado con ❤️ para la comunidad cubana
                                     </p>
+                                </div>
+
+                                {/* Mobile close button */}
+                                <div className="sm:hidden pt-4">
+                                    <button
+                                        onClick={() => setShowContact(false)}
+                                        className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-200 transition-colors touch-manipulation focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                                    >
+                                        Cerrar
+                                    </button>
                                 </div>
                             </div>
                         </div>
