@@ -22,24 +22,26 @@ export default async function handler(req, res) {
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         // Step 1: Analyze user intent and extract search terms
-        const intentPrompt = `Eres un asistente especializado en recomendaciones de comida y lugares en La Habana, Cuba.
+        const intentPrompt = `Eres un asistente que analiza mensajes de usuarios para extraer información de búsqueda.
 
 El usuario dice: "${userMessage}"
 
-Tu tarea es:
-1. Analizar qué tipo de comida o lugar está buscando el usuario
-2. Extraer términos de búsqueda específicos para usar en nuestra API
-3. Determinar si necesitas buscar información específica
+Tu tarea es SOLO extraer información EXPLÍCITA del mensaje:
+1. Extraer términos de búsqueda mencionados por el usuario
+2. Extraer ubicación SOLO si el usuario la menciona
+3. NO agregues categorías o filtros que el usuario no mencionó explícitamente
+4. NO inventes información
 
-IMPORTANTE: Responde ÚNICAMENTE con un objeto JSON válido, sin markdown ni **, sin bloques de código, sin explicaciones adicionales y no iventes información que no devuelva la api
+IMPORTANTE: Responde ÚNICAMENTE con un objeto JSON válido, sin markdown, sin explicaciones adicionales.
 
 Formato exacto:
-{"searchQuery": "términos de búsqueda específicos", "needsSearch": true, "category": "tipo de establecimiento si es relevante", "location": "ubicación si es mencionada", "intent": "descripción breve de lo que busca el usuario"}
+{"searchQuery": "solo lo que el usuario menciona", "needsSearch": true/false, "location": "solo si mencionada explícitamente", "intent": "descripción breve"}
 
 Ejemplos:
-- Usuario: "quiero una hamburguesa rica" → {"searchQuery": "hamburguesa", "needsSearch": true, "category": "restaurantes", "location": "", "intent": "buscar hamburguesas"}
-- Usuario: "hola" → {"searchQuery": "", "needsSearch": false, "category": "", "location": "", "intent": "saludo"}
-- Usuario: "algo dulce en vedado" → {"searchQuery": "dulce", "needsSearch": true, "category": "dulcerias", "location": "Vedado", "intent": "buscar postres en Vedado"}`;
+- Usuario: "quiero una hamburguesa" → {"searchQuery": "hamburguesa", "needsSearch": true, "location": "", "intent": "buscar hamburguesa"}
+- Usuario: "hola" → {"searchQuery": "", "needsSearch": false, "location": "", "intent": "saludo"}
+- Usuario: "algo dulce en vedado" → {"searchQuery": "dulce", "needsSearch": true, "location": "vedado", "intent": "buscar algo dulce en vedado"}
+- Usuario: "restaurantes en plaza" → {"searchQuery": "restaurantes", "needsSearch": true, "location": "plaza", "intent": "buscar restaurantes en plaza"}`;
 
         const intentResult = await model.generateContent(intentPrompt);
         const intentText = intentResult.response.text();
@@ -82,7 +84,6 @@ Ejemplos:
             analysisData = {
                 searchQuery: userMessage,
                 needsSearch: true,
-                category: "",
                 location: "",
                 intent: "búsqueda general"
             };
@@ -95,7 +96,7 @@ Ejemplos:
             try {
                 const searchUrl = new URL('/api/search', req.headers.origin || 'http://localhost:3000');
                 searchUrl.searchParams.append('query', analysisData.searchQuery);
-                if (analysisData.category) searchUrl.searchParams.append('type', analysisData.category);
+                // Only add location if explicitly mentioned by user
                 if (analysisData.location) searchUrl.searchParams.append('location', analysisData.location);
 
                 const searchResponse = await fetch(searchUrl.toString());
@@ -109,13 +110,12 @@ Ejemplos:
 
         // Step 3: Generate final recommendation using search results
         const recommendationPrompt = `
-Eres un asistente amigable especializado en recomendaciones de comida y lugares en La Habana, Cuba.
+Eres un asistente amigable que ayuda a los usuarios con recomendaciones basadas ÚNICAMENTE en datos reales.
 
 Usuario preguntó: "${userMessage}"
-Análisis: ${analysisData.intent}
 
 ${searchResults.length > 0 ? `
-Encontré estos productos/lugares relevantes:
+DATOS ENCONTRADOS (usar SOLO esta información):
 ${searchResults.slice(0, 5).map(product => `
 - ${product.product_name} en ${product.name}
   Precio: $${product.product_price}
@@ -124,18 +124,19 @@ ${searchResults.slice(0, 5).map(product => `
   Teléfono: ${product.phone}
   ${product.delivery ? 'Con delivery' : ''} ${product.pickup ? 'Con pickup' : ''}
 `).join('\n')}
-` : ''}
+` : 'NO se encontraron resultados en la búsqueda.'}
 
-Instrucciones:
-1. Responde de manera conversacional y amigable en español
-2. ${searchResults.length > 0 ? 'Haz recomendaciones específicas basadas en los resultados encontrados' : 'Da recomendaciones generales sobre comida en La Habana'}
-3. Incluye precios cuando sea relevante
-4. Menciona opciones de delivery/pickup si están disponibles
-5. Da consejos útiles sobre dónde encontrar lo que buscan
-6. Mantén un tono casual y local
-7. Si no encontraste resultados específicos, sugiere categorías similares o lugares populares en La Habana
+INSTRUCCIONES ESTRICTAS:
+1. Responde en español de manera conversacional y amigable
+2. USA ÚNICAMENTE la información de los datos encontrados arriba
+3. NO inventes, no agregues, no supongas información que no esté en los datos
+4. Si no hay resultados, di claramente que no se encontraron resultados para esa búsqueda
+5. Si hay resultados, menciona SOLO lo que aparece en los datos (nombres, precios, ubicaciones)
+6. Incluye precios exactos como aparecen en los datos
+7. Menciona delivery/pickup solo si aparece en los datos
+8. NO agregues consejos generales o información externa
 
-Máximo 200 palabras.
+Máximo 150 palabras. Sé directo y preciso.
 `;
 
         const recommendationResult = await model.generateContent(recommendationPrompt);
