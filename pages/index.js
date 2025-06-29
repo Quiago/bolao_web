@@ -1,4 +1,4 @@
-import { ChevronRight, Filter, Mail, MapIcon, MapPin, MessageSquare, Phone, Search, Store, X } from 'lucide-react';
+import { ChevronRight, Eye, Filter, Mail, MapIcon, MapPin, MessageSquare, Phone, Search, Store, X } from 'lucide-react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -75,11 +75,13 @@ export default function Home() {
         if (hasSearched && searchQuery.trim()) {
             performSearch();
         }
+        // Also reload filters for the new mode
+        loadFilterOptions(searchMode);
     }, [searchMode]);
 
-    const loadFilterOptions = async () => {
+    const loadFilterOptions = async (mode = searchMode) => {
         try {
-            const response = await fetch('/api/filters');
+            const response = await fetch(`/api/filters?mode=${mode}`);
             const data = await response.json();
             setLocations(data.locations || []);
             setTypes(data.types || []);
@@ -192,6 +194,61 @@ export default function Home() {
         await performSearch();
     };
 
+    const handleShowAll = async () => {
+        if (searchMode !== 'lugares') return; // Only for places mode
+
+        setLoading(true);
+        try {
+            const params = new URLSearchParams({
+                showAll: 'true',
+                ...(filters.location && { location: filters.location }),
+                ...(filters.type && { type: filters.type })
+            });
+
+            const response = await fetch(`/api/places/search?${params}`);
+            const data = await response.json();
+            const items = data.places || [];
+
+            // Normalize places data
+            const normalizedPlaces = items.map(place => ({
+                id: place.id,
+                name: place.name,
+                product_name: place.name,
+                location: place.address,
+                logo: place.logo,
+                phone: place.phone,
+                phone2: place.phone2,
+                web: place.web,
+                web2: place.web2,
+                email: place.email,
+                telegram: place.telegram,
+                geo: place.geo,
+                facebook: place.facebook,
+                instagram: place.instagram,
+                youtube: place.youtube,
+                type: place.type,
+                score: 1, // Show all as 100% relevant
+                address: place.address
+            }));
+
+            setResults(normalizedPlaces);
+            setHasSearched(true);
+            setSearchQuery('Ver todos los lugares');
+
+            // Update context
+            setSearchResults(normalizedPlaces);
+            setLastSearch({
+                query: 'Ver todos',
+                filters: filters
+            });
+
+        } catch (error) {
+            console.error('Error showing all places:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleKeyPress = (e) => {
         if (e.key === 'Enter') {
             handleSearch();
@@ -200,12 +257,6 @@ export default function Home() {
 
     const formatPrice = (price) => {
         return typeof price === 'number' ? `$${price.toFixed(2)}` : `$${price}`;
-    };
-
-    const getScoreColor = (score) => {
-        if (score > 0.8) return 'bg-green-500';
-        if (score > 0.6) return 'bg-yellow-500';
-        return 'bg-gray-400';
     };
 
     return (
@@ -312,8 +363,8 @@ export default function Home() {
                                 <button
                                     onClick={() => setSearchMode('productos')}
                                     className={`flex items-center px-4 py-2 rounded-md transition-all font-medium ${searchMode === 'productos'
-                                            ? 'bg-orange-500 text-white shadow-sm'
-                                            : 'text-gray-600 hover:text-orange-500 hover:bg-orange-50'
+                                        ? 'bg-orange-500 text-white shadow-sm'
+                                        : 'text-gray-600 hover:text-orange-500 hover:bg-orange-50'
                                         }`}
                                 >
                                     <Store className="w-4 h-4 mr-2" />
@@ -323,8 +374,8 @@ export default function Home() {
                                 <button
                                     onClick={() => setSearchMode('lugares')}
                                     className={`flex items-center px-4 py-2 rounded-md transition-all font-medium ${searchMode === 'lugares'
-                                            ? 'bg-orange-500 text-white shadow-sm'
-                                            : 'text-gray-600 hover:text-orange-500 hover:bg-orange-50'
+                                        ? 'bg-orange-500 text-white shadow-sm'
+                                        : 'text-gray-600 hover:text-orange-500 hover:bg-orange-50'
                                         }`}
                                 >
                                     <MapIcon className="w-4 h-4 mr-2" />
@@ -438,9 +489,6 @@ export default function Home() {
                                                     )}
                                                 </div>
                                             )}
-                                            <div className={`absolute top-4 right-4 ${getScoreColor(item.score)} text-white px-3 py-1 rounded-full text-sm font-semibold`}>
-                                                {(item.score * 100).toFixed(0)}% relevante
-                                            </div>
                                         </div>
 
                                         <div className="p-6">
@@ -507,6 +555,27 @@ export default function Home() {
                             <p className="text-gray-500 mt-2">Intenta con otros términos de búsqueda</p>
                         </div>
                     ) : null}
+
+                    {/* Ver todos button - only show for lugares mode */}
+                    {searchMode === 'lugares' && (
+                        <div className="text-center mb-6">
+                            <button
+                                onClick={handleShowAll}
+                                className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition font-semibold flex items-center mx-auto"
+                                disabled={loading}
+                            >
+                                <Eye className="w-5 h-5 mr-2" />
+                                Ver todos los lugares
+                                {(filters.location || filters.type) && (
+                                    <span className="ml-2 text-sm opacity-75">
+                                        {filters.location && `en ${filters.location}`}
+                                        {filters.location && filters.type && ' - '}
+                                        {filters.type && filters.type}
+                                    </span>
+                                )}
+                            </button>
+                        </div>
+                    )}
                 </section>
                 {showChat && <ChatPanel onClose={() => setShowChat(false)} searchMode={searchMode} />}
 
