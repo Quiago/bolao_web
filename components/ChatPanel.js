@@ -1,7 +1,7 @@
 import { Send, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-export default function ChatPanel({ onClose }) {
+export default function ChatPanel({ onClose, searchMode = 'productos' }) {
     const [messages, setMessages] = useState([
         { from: 'bot', text: '¡Hola! Soy tu asistente. ¿En qué puedo ayudarte hoy?' }
     ]);
@@ -41,7 +41,10 @@ export default function ChatPanel({ onClose }) {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ userMessage: text }),
+                body: JSON.stringify({
+                    userMessage: text,
+                    searchMode: searchMode
+                }),
             });
 
             const data = await response.json();
@@ -55,9 +58,14 @@ export default function ChatPanel({ onClose }) {
 
                 // If there are search results, optionally show them
                 if (data.searchResults && data.searchResults.length > 0) {
-                    const resultsText = `\n\n📍 Lugares encontrados:\n${data.searchResults.map(p =>
-                        `• ${p.product_name} en ${p.name} - $${p.product_price}`
-                    ).join('\n')}`;
+                    const isPlacesResult = data.analysis && data.analysis.searchType === 'lugares';
+                    const resultsText = isPlacesResult
+                        ? `\n\n📍 Lugares encontrados:\n${data.searchResults.map(place =>
+                            `• ${place.name} - ${place.address || 'Dirección no disponible'} - Tel: ${place.phone || 'N/A'}`
+                        ).join('\n')}`
+                        : `\n\n🛍️ Productos encontrados:\n${data.searchResults.map(product =>
+                            `• ${product.product_name} en ${product.name} - $${product.product_price}`
+                        ).join('\n')}`;
 
                     setMessages(prev => [...prev, { from: 'bot', text: resultsText }]);
                 }
@@ -101,8 +109,8 @@ export default function ChatPanel({ onClose }) {
                         >
                             <div
                                 className={`max-w-[85%] md:max-w-xs p-3 rounded-lg text-sm whitespace-pre-wrap ${msg.from === 'user'
-                                        ? 'bg-orange-500 text-white rounded-br-sm'
-                                        : 'bg-white text-gray-800 shadow-sm border rounded-bl-sm'
+                                    ? 'bg-orange-500 text-white rounded-br-sm'
+                                    : 'bg-white text-gray-800 shadow-sm border rounded-bl-sm'
                                     }`}
                             >
                                 {msg.text}

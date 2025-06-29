@@ -1,4 +1,4 @@
-import { ChevronRight, Filter, Mail, MapPin, MessageSquare, Phone, Search, X } from 'lucide-react';
+import { ChevronRight, Filter, Mail, MapIcon, MapPin, MessageSquare, Phone, Search, Store, X } from 'lucide-react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -20,6 +20,7 @@ export default function Home() {
     const [hasSearched, setHasSearched] = useState(false);
     const [showChat, setShowChat] = useState(false);
     const [showContact, setShowContact] = useState(false);
+    const [searchMode, setSearchMode] = useState('productos'); // 'productos' or 'lugares'
 
     // Usar el contexto
     const { setSearchResults, setLastSearch } = useProducts();
@@ -69,6 +70,13 @@ export default function Home() {
         };
     }, [showContact]);
 
+    // Re-execute search when search mode changes and we have a query
+    useEffect(() => {
+        if (hasSearched && searchQuery.trim()) {
+            performSearch();
+        }
+    }, [searchMode]);
+
     const loadFilterOptions = async () => {
         try {
             const response = await fetch('/api/filters');
@@ -80,46 +88,90 @@ export default function Home() {
         }
     };
 
-    const performSearch = async (query = searchQuery, searchFilters = filters) => {
+    const performSearch = async (query = searchQuery, searchFilters = filters, mode = searchMode) => {
         if (!query.trim()) return;
 
         setLoading(true);
         try {
-            const params = new URLSearchParams({
-                query: query,
-                ...(searchFilters.location && { location: searchFilters.location }),
-                ...(searchFilters.type && { type: searchFilters.type })
-            });
+            let response, data, items;
 
-            const response = await fetch(`/api/search?${params}`);
-            const data = await response.json();
-            const products = data.products || [];
+            if (mode === 'lugares') {
+                // Search places using Supabase
+                const params = new URLSearchParams({
+                    query: query,
+                    ...(searchFilters.location && { location: searchFilters.location }),
+                    ...(searchFilters.type && { type: searchFilters.type })
+                });
 
-            // Normalizar los datos antes de guardarlos
-            const normalizedProducts = products.map(product => ({
-                ...product,
-                // Asegurar que delivery y pickup son booleanos
-                delivery: product.delivery === true || product.delivery === 'True',
-                pickup: product.pickup === true || product.pickup === 'True',
-                // Asegurar que el precio es un número
-                product_price: typeof product.product_price === 'number'
-                    ? product.product_price
-                    : parseFloat(product.product_price) || product.product_price,
-                // IMPORTANTE: NO parsear geo, dejarlo como viene de la API
-                geo: product.geo
-            }));
+                response = await fetch(`/api/places/search?${params}`);
+                data = await response.json();
+                items = data.places || [];
 
-            setResults(normalizedProducts);
+                // Normalize places data to match product structure for display
+                const normalizedPlaces = items.map(place => ({
+                    id: place.id,
+                    name: place.name,
+                    product_name: place.name, // For consistency with product structure
+                    location: place.address,
+                    logo: place.logo,
+                    phone: place.phone,
+                    phone2: place.phone2,
+                    web: place.web,
+                    web2: place.web2,
+                    email: place.email,
+                    telegram: place.telegram,
+                    facebook: place.facebook,
+                    instagram: place.instagram,
+                    youtube: place.youtube,
+                    type: place.type,
+                    score: place.score || 0.5,
+                    geo: place.geo,
+                    delivery: false, // Places don't have delivery/pickup
+                    pickup: false,
+                    product_price: 'N/A' // Places don't have prices
+                }));
+
+                setResults(normalizedPlaces);
+                setSearchResults(normalizedPlaces);
+            } else {
+                // Search products using existing API
+                const params = new URLSearchParams({
+                    query: query,
+                    ...(searchFilters.location && { location: searchFilters.location }),
+                    ...(searchFilters.type && { type: searchFilters.type })
+                });
+
+                response = await fetch(`/api/search?${params}`);
+                data = await response.json();
+                const products = data.products || [];
+
+                // Normalizar los datos antes de guardarlos
+                const normalizedProducts = products.map(product => ({
+                    ...product,
+                    // Asegurar que delivery y pickup son booleanos
+                    delivery: product.delivery === true || product.delivery === 'True',
+                    pickup: product.pickup === true || product.pickup === 'True',
+                    // Asegurar que el precio es un número
+                    product_price: typeof product.product_price === 'number'
+                        ? product.product_price
+                        : parseFloat(product.product_price) || product.product_price,
+                    // IMPORTANTE: NO parsear geo, dejarlo como viene de la API
+                    geo: product.geo
+                }));
+
+                setResults(normalizedProducts);
+                setSearchResults(normalizedProducts);
+            }
 
             // Guardar en el contexto
-            setSearchResults(normalizedProducts);
             setLastSearch({
                 query: query,
-                filters: searchFilters
+                filters: searchFilters,
+                mode: mode
             });
 
             // Log search analytics
-            logSearch(query, normalizedProducts.length);
+            logSearch(query, items.length || data.products?.length || 0);
 
             // Log filter usage if filters are applied
             if (searchFilters.location) {
@@ -227,7 +279,10 @@ export default function Home() {
                                 <Search className="w-6 h-6 text-gray-400 ml-3" />
                                 <input
                                     type="text"
-                                    placeholder="¿Qué estás buscando? Ej: hamburguesa, café, helado..."
+                                    placeholder={searchMode === 'lugares'
+                                        ? "¿Qué lugar buscas? Ej: restaurante, cafetería, panadería..."
+                                        : "¿Qué estás buscando? Ej: hamburguesa, café, helado..."
+                                    }
                                     className="flex-1 px-4 py-3 text-gray-700 focus:outline-none"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -247,6 +302,34 @@ export default function Home() {
                                 >
                                     <MessageSquare className="w-5 h-5 sm:mr-1" />
                                     <span className="hidden sm:inline">Chat</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Search Mode Buttons */}
+                        <div className="mt-4 flex justify-center">
+                            <div className="bg-white rounded-lg shadow-md p-1 flex gap-1">
+                                <button
+                                    onClick={() => setSearchMode('productos')}
+                                    className={`flex items-center px-4 py-2 rounded-md transition-all font-medium ${searchMode === 'productos'
+                                            ? 'bg-orange-500 text-white shadow-sm'
+                                            : 'text-gray-600 hover:text-orange-500 hover:bg-orange-50'
+                                        }`}
+                                >
+                                    <Store className="w-4 h-4 mr-2" />
+                                    <span className="hidden sm:inline">Productos</span>
+                                    <span className="sm:hidden">🛍️</span>
+                                </button>
+                                <button
+                                    onClick={() => setSearchMode('lugares')}
+                                    className={`flex items-center px-4 py-2 rounded-md transition-all font-medium ${searchMode === 'lugares'
+                                            ? 'bg-orange-500 text-white shadow-sm'
+                                            : 'text-gray-600 hover:text-orange-500 hover:bg-orange-50'
+                                        }`}
+                                >
+                                    <MapIcon className="w-4 h-4 mr-2" />
+                                    <span className="hidden sm:inline">Lugares</span>
+                                    <span className="sm:hidden">📍</span>
                                 </button>
                             </div>
                         </div>
@@ -322,50 +405,93 @@ export default function Home() {
                     {loading ? (
                         <div className="text-center py-12">
                             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
-                            <p className="mt-4 text-gray-600">Buscando productos...</p>
+                            <p className="mt-4 text-gray-600">
+                                Buscando {searchMode === 'lugares' ? 'lugares' : 'productos'}...
+                            </p>
                         </div>
                     ) : results.length > 0 ? (
                         <>
                             <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                                {results.length} resultados encontrados para "{searchQuery}"
+                                {results.length} {searchMode === 'lugares' ? 'lugares' : 'productos'} encontrados para "{searchQuery}"
                             </h2>
                             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {results.map((product) => (
+                                {results.map((item) => (
                                     <Link
-                                        key={product.id}
-                                        href={`/product/${product.id}`}
+                                        key={item.id}
+                                        href={searchMode === 'lugares' ? `/places/${item.id}` : `/product/${item.id}`}
                                         className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden cursor-pointer"
                                     >
                                         <div className="relative">
-                                            {product.logo && (
+                                            {item.logo && (
                                                 <img
-                                                    src={product.logo}
-                                                    alt={product.name}
+                                                    src={item.logo}
+                                                    alt={item.name}
                                                     className="w-full h-48 object-cover bg-gray-100"
                                                 />
                                             )}
-                                            {!product.logo && (
-                                                <div className="w-full h-48 bg-gray-100"></div>
+                                            {!item.logo && (
+                                                <div className="w-full h-48 bg-gray-100 flex items-center justify-center">
+                                                    {searchMode === 'lugares' ? (
+                                                        <MapIcon className="w-12 h-12 text-gray-400" />
+                                                    ) : (
+                                                        <Store className="w-12 h-12 text-gray-400" />
+                                                    )}
+                                                </div>
                                             )}
-                                            <div className={`absolute top-4 right-4 ${getScoreColor(product.score)} text-white px-3 py-1 rounded-full text-sm font-semibold`}>
-                                                {(product.score * 100).toFixed(0)}% relevante
+                                            <div className={`absolute top-4 right-4 ${getScoreColor(item.score)} text-white px-3 py-1 rounded-full text-sm font-semibold`}>
+                                                {(item.score * 100).toFixed(0)}% relevante
                                             </div>
                                         </div>
 
                                         <div className="p-6">
-                                            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                                                {product.product_name}
-                                            </h3>
-                                            <p className="text-gray-600 mb-2">{product.name}</p>
-                                            {product.description && <p className="text-gray-700 text-sm mb-2">{product.description}</p>}
-                                            <p className="text-2xl font-bold text-orange-500 mb-3">
-                                                {formatPrice(product.product_price)}
-                                            </p>
+                                            {searchMode === 'lugares' ? (
+                                                // Places display
+                                                <>
+                                                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                                                        {item.name}
+                                                    </h3>
+                                                    {item.type && (
+                                                        <p className="text-orange-500 font-medium mb-2 text-sm uppercase tracking-wide">
+                                                            {item.type}
+                                                        </p>
+                                                    )}
 
-                                            <div className="flex items-center text-gray-500 mb-2">
-                                                <MapPin className="w-4 h-4 mr-1" />
-                                                <span className="text-sm">{product.location}</span>
-                                            </div>
+                                                    <div className="flex items-center text-gray-500 mb-2">
+                                                        <MapPin className="w-4 h-4 mr-1" />
+                                                        <span className="text-sm">{item.address || item.location || 'Dirección no disponible'}</span>
+                                                    </div>
+
+                                                    {item.phone && (
+                                                        <div className="flex items-center text-gray-500 mb-2">
+                                                            <Phone className="w-4 h-4 mr-1" />
+                                                            <span className="text-sm">{item.phone}</span>
+                                                        </div>
+                                                    )}
+
+                                                    {item.web && (
+                                                        <div className="text-blue-600 text-sm mb-2 truncate">
+                                                            🌐 {item.web}
+                                                        </div>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                // Products display
+                                                <>
+                                                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                                                        {item.product_name}
+                                                    </h3>
+                                                    <p className="text-gray-600 mb-2">{item.name}</p>
+                                                    {item.description && <p className="text-gray-700 text-sm mb-2">{item.description}</p>}
+                                                    <p className="text-2xl font-bold text-orange-500 mb-3">
+                                                        {formatPrice(item.product_price)}
+                                                    </p>
+
+                                                    <div className="flex items-center text-gray-500 mb-2">
+                                                        <MapPin className="w-4 h-4 mr-1" />
+                                                        <span className="text-sm">{item.location}</span>
+                                                    </div>
+                                                </>
+                                            )}
 
                                             <div className="flex items-center justify-end mt-4">
                                                 <ChevronRight className="w-5 h-5 text-gray-400" />
@@ -382,7 +508,7 @@ export default function Home() {
                         </div>
                     ) : null}
                 </section>
-                {showChat && <ChatPanel onClose={() => setShowChat(false)} />}
+                {showChat && <ChatPanel onClose={() => setShowChat(false)} searchMode={searchMode} />}
 
                 {/* Contact Modal */}
                 {showContact && (

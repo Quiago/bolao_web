@@ -6,7 +6,7 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { userMessage } = req.body;
+        const { userMessage, searchMode = 'productos' } = req.body;
 
         if (!userMessage) {
             return res.status(400).json({ error: 'User message is required' });
@@ -29,20 +29,22 @@ El usuario dice: "${userMessage}"
 Tu tarea es SOLO extraer información EXPLÍCITA del mensaje:
 1. Extraer términos de búsqueda mencionados por el usuario
 2. Extraer ubicación SOLO si el usuario la menciona
-3. NO agregues categorías o filtros que el usuario no mencionó explícitamente
-4. NO inventes información
+3. Determinar si busca PRODUCTOS (comidas, bebidas, artículos) o LUGARES (restaurantes, cafeterías, establecimientos)
+4. NO agregues categorías o filtros que el usuario no mencionó explícitamente
+5. NO inventes información
 
 IMPORTANTE: Responde ÚNICAMENTE con un objeto JSON válido, sin markdown, sin explicaciones adicionales.
 URGENTE: TU NOMBRE ES BOLAO Y NO RESPONDAS PREGUNTAS QUE NO TENGAN QUE VER CON BUSQUEDAS DE COMIDA, SI LA PREGUNTA NO ES SOBRE COMIDA O LUGARES, REDIRIGE LA PREGUNTA HACIA UNA BUSQUEDA DE COMIDA O REALIZA TU UNA SUGERENCIA DE UNA PREGUNTA COMO CON ESO NO TE PUEDO AYUDAR PERO QUE QUIERES COMER
 
 Formato exacto:
-{"searchQuery": "solo lo que el usuario menciona", "needsSearch": true/false, "location": "solo si mencionada explícitamente", "intent": "descripción breve"}
+{"searchQuery": "solo lo que el usuario menciona", "needsSearch": true/false, "location": "solo si mencionada explícitamente", "searchType": "productos/lugares", "intent": "descripción breve"}
 
 Ejemplos:
-- Usuario: "quiero una hamburguesa" → {"searchQuery": "hamburguesa", "needsSearch": true, "location": "", "intent": "buscar hamburguesa"}
-- Usuario: "hola" → {"searchQuery": "", "needsSearch": false, "location": "", "intent": "saludo"}
-- Usuario: "algo dulce en vedado" → {"searchQuery": "dulce", "needsSearch": true, "location": "vedado", "intent": "buscar algo dulce en vedado"}
-- Usuario: "restaurantes en plaza" → {"searchQuery": "restaurantes", "needsSearch": true, "location": "plaza", "intent": "buscar restaurantes en plaza"}`;
+- Usuario: "quiero una hamburguesa" → {"searchQuery": "hamburguesa", "needsSearch": true, "location": "", "searchType": "productos", "intent": "buscar hamburguesa"}
+- Usuario: "restaurantes en vedado" → {"searchQuery": "restaurantes", "needsSearch": true, "location": "vedado", "searchType": "lugares", "intent": "buscar restaurantes en vedado"}
+- Usuario: "hola" → {"searchQuery": "", "needsSearch": false, "location": "", "searchType": "productos", "intent": "saludo"}
+- Usuario: "algo dulce en plaza" → {"searchQuery": "dulce", "needsSearch": true, "location": "plaza", "searchType": "productos", "intent": "buscar algo dulce en plaza"}
+- Usuario: "cafeterías cerca" → {"searchQuery": "cafeterías", "needsSearch": true, "location": "", "searchType": "lugares", "intent": "buscar cafeterías"}`;
 
         const intentResult = await model.generateContent(intentPrompt);
         const intentText = intentResult.response.text();
@@ -86,23 +88,33 @@ Ejemplos:
                 searchQuery: userMessage,
                 needsSearch: true,
                 location: "",
+                searchType: searchMode === 'lugares' ? 'lugares' : 'productos',
                 intent: "búsqueda general"
             };
             console.log('Using fallback analysis:', analysisData);
         }
 
-        // Step 2: If needs search, call our search API
+        // Step 2: If needs search, call appropriate search API
         let searchResults = [];
         if (analysisData.needsSearch && analysisData.searchQuery) {
             try {
-                const searchUrl = new URL('/api/search', req.headers.origin || 'http://localhost:3000');
+                const isPlacesSearch = analysisData.searchType === 'lugares';
+                const searchUrl = new URL(
+                    isPlacesSearch ? '/api/places/search' : '/api/search',
+                    req.headers.origin || 'http://localhost:3000'
+                );
                 searchUrl.searchParams.append('query', analysisData.searchQuery);
                 // Only add location if explicitly mentioned by user
                 if (analysisData.location) searchUrl.searchParams.append('location', analysisData.location);
 
                 const searchResponse = await fetch(searchUrl.toString());
                 const searchData = await searchResponse.json();
-                searchResults = searchData.products || [];
+
+                if (analysisData.searchType === 'lugares') {
+                    searchResults = searchData.places || [];
+                } else {
+                    searchResults = searchData.products || [];
+                }
             } catch (searchError) {
                 console.error('Error calling search API:', searchError);
                 // Continue without search results
@@ -110,6 +122,7 @@ Ejemplos:
         }
 
         // Step 3: Generate final recommendation using search results
+        const isPlacesSearch = analysisData.searchType === 'lugares';
         const recommendationPrompt = `
 Eres un asistente amigable que ayuda a los usuarios con recomendaciones basadas ÚNICAMENTE en datos reales.
 
@@ -117,14 +130,27 @@ Usuario preguntó: "${userMessage}"
 
 ${searchResults.length > 0 ? `
 DATOS ENCONTRADOS (usar SOLO esta información):
-${searchResults.slice(0, 5).map(product => `
-- ${product.product_name} en ${product.name}
-  Precio: $${product.product_price}
-  Ubicación: ${product.location}
-  ${product.description ? `Descripción: ${product.description}` : ''}
-  Teléfono: ${product.phone}
-  ${product.delivery ? 'Con delivery' : ''} ${product.pickup ? 'Con pickup' : ''}
-`).join('\n')}
+${searchResults.slice(0, 5).map(item => {
+            if (isPlacesSearch) {
+                return `
+- ${item.name}
+  Dirección: ${item.address || 'No especificada'}
+  Tipo: ${item.type || 'No especificado'}
+  Teléfono: ${item.phone || 'No disponible'}
+  ${item.web ? `Web: ${item.web}` : ''}
+  ${item.email ? `Email: ${item.email}` : ''}
+`;
+            } else {
+                return `
+- ${item.product_name} en ${item.name}
+  Precio: $${item.product_price}
+  Ubicación: ${item.location}
+  ${item.description ? `Descripción: ${item.description}` : ''}
+  Teléfono: ${item.phone}
+  ${item.delivery ? 'Con delivery' : ''} ${item.pickup ? 'Con pickup' : ''}
+`;
+            }
+        }).join('\n')}
 ` : 'NO se encontraron resultados en la búsqueda.'}
 
 INSTRUCCIONES ESTRICTAS:
@@ -132,10 +158,12 @@ INSTRUCCIONES ESTRICTAS:
 2. USA ÚNICAMENTE la información de los datos encontrados arriba
 3. NO inventes, no agregues, no supongas información que no esté en los datos
 4. Si no hay resultados, di claramente que no se encontraron resultados para esa búsqueda
-5. Si hay resultados, menciona SOLO lo que aparece en los datos (nombres, precios, ubicaciones)
-6. Incluye precios exactos como aparecen en los datos
-7. Menciona delivery/pickup solo si aparece en los datos
-8. NO agregues consejos generales o información externa
+5. Si hay resultados, menciona SOLO lo que aparece en los datos
+${isPlacesSearch ?
+                '6. Para lugares: menciona nombre, dirección, tipo, teléfono, web o email si están disponibles' :
+                '6. Para productos: incluye precios exactos como aparecen en los datos y menciona delivery/pickup solo si aparece en los datos'
+            }
+7. NO agregues consejos generales o información externa
 
 Máximo 150 palabras. Sé directo y preciso.
 `;
