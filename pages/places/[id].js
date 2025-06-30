@@ -172,7 +172,7 @@ export default function PlaceDetail() {
                 <div className="text-center">
                     <p className="text-red-600 mb-4">{error}</p>
                     <button
-                        onClick={() => router.back()}
+                        onClick={() => router.push('/?reset=true')}
                         className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600"
                     >
                         Volver
@@ -188,7 +188,7 @@ export default function PlaceDetail() {
                 <div className="text-center">
                     <p className="text-gray-600 mb-4">Lugar no encontrado</p>
                     <button
-                        onClick={() => router.back()}
+                        onClick={() => router.push('/?reset=true')}
                         className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600"
                     >
                         Volver
@@ -210,7 +210,7 @@ export default function PlaceDetail() {
                 <div className="bg-white shadow-sm border-b">
                     <div className="max-w-4xl mx-auto px-4 py-4 flex items-center">
                         <button
-                            onClick={() => router.back()}
+                            onClick={() => router.push('/?reset=true')}
                             className="mr-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
                         >
                             <ArrowLeft className="w-6 h-6 text-gray-600" />

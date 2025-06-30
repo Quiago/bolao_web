@@ -33,6 +33,20 @@ export default function Home() {
         const queryParam = urlParams.get('q');
         const locationParam = urlParams.get('location');
         const typeParam = urlParams.get('type');
+        const resetParam = urlParams.get('reset');
+
+        // If reset parameter is present, clear search and remove it from URL
+        if (resetParam === 'true') {
+            setSearchQuery('');
+            setResults([]);
+            setHasSearched(false);
+            setFilters({ location: '', type: '' });
+
+            // Clean URL by removing the reset parameter
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, '', newUrl);
+            return;
+        }
 
         if (queryParam) {
             setSearchQuery(queryParam);
@@ -70,12 +84,14 @@ export default function Home() {
         };
     }, [showContact]);
 
-    // Re-execute search when search mode changes and we have a query
+    // Handle search mode changes - clear search and reset state
     useEffect(() => {
-        if (hasSearched && searchQuery.trim()) {
-            performSearch();
-        }
-        // Also reload filters for the new mode
+        // Clear search when mode changes
+        setSearchQuery('');
+        setResults([]);
+        setHasSearched(false);
+
+        // Reload filters for the new mode
         loadFilterOptions(searchMode);
     }, [searchMode]);
 

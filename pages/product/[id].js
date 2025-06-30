@@ -1,4 +1,4 @@
-import { ArrowLeft, Facebook, Globe, Instagram, MapPin, Phone, ShoppingBag, Star, Truck } from 'lucide-react';
+import { ArrowLeft, Clock, Facebook, Globe, Instagram, Mail, MapPin, Phone, ShoppingBag, Star, Truck } from 'lucide-react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -11,7 +11,10 @@ export default function ProductDetail() {
     const router = useRouter();
     const { id } = router.query;
     const [product, setProduct] = useState(null);
+    const [placeInfo, setPlaceInfo] = useState(null);
+    const [placeProducts, setPlaceProducts] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadingPlace, setLoadingPlace] = useState(false);
     const { getProductById, lastSearch } = useProducts();
 
     useEffect(() => {
@@ -25,6 +28,11 @@ export default function ProductDetail() {
 
                 // Log product view analytics
                 logProductView(productFromContext.id, productFromContext.product_name || productFromContext.name);
+
+                // Fetch complete place information
+                if (productFromContext.name) {
+                    fetchPlaceInfo(productFromContext.name);
+                }
             } else {
                 // Si no está en el contexto, redirigir a la página principal
                 console.warn('Product not found in context, redirecting to home');
@@ -33,20 +41,121 @@ export default function ProductDetail() {
         }
     }, [id, getProductById, router]);
 
-    const getBackUrl = () => {
-        // Si tenemos información de la última búsqueda, reconstruir la URL
-        if (lastSearch.query) {
-            const searchParams = new URLSearchParams();
-            searchParams.set('q', lastSearch.query);
-            if (lastSearch.filters?.location) searchParams.set('location', lastSearch.filters.location);
-            if (lastSearch.filters?.type) searchParams.set('type', lastSearch.filters.type);
-            return `/?${searchParams.toString()}`;
+    const fetchPlaceInfo = async (placeName) => {
+        try {
+            setLoadingPlace(true);
+            console.log('🔍 Fetching place info for:', placeName);
+
+            // OPTIMIZED: Use search API to get place details directly instead of two API calls
+            const searchResponse = await fetch(`/api/places/search?query=${encodeURIComponent(placeName)}`);
+
+            if (searchResponse.ok) {
+                const searchData = await searchResponse.json();
+                const matchingPlace = searchData.places?.find(place =>
+                    place.name.toLowerCase() === placeName.toLowerCase()
+                );
+
+                if (matchingPlace) {
+                    console.log('📊 Found matching place:', matchingPlace.name, 'ID:', matchingPlace.id);
+
+                    // Use search result data directly if it has complete info, otherwise fetch details
+                    if (matchingPlace.address && (matchingPlace.geo || (matchingPlace.lat && matchingPlace.lng))) {
+                        // Search result has complete data, use it directly
+                        console.log('✅ Using search result data directly (faster)');
+                        setPlaceInfo(matchingPlace);
+                        fetchPlaceProducts(matchingPlace.name);
+                    } else {
+                        // Fallback: fetch complete details from API
+                        console.log('🔄 Fetching complete place details via API');
+                        const placeResponse = await fetch(`/api/places/${matchingPlace.id}`);
+                        if (placeResponse.ok) {
+                            const fullPlaceData = await placeResponse.json();
+                            console.log('📊 Complete place data received:', {
+                                name: fullPlaceData.name,
+                                phone: fullPlaceData.phone,
+                                email: fullPlaceData.email,
+                                instagram: fullPlaceData.instagram,
+                                facebook: fullPlaceData.facebook,
+                                web: fullPlaceData.web,
+                                address: fullPlaceData.address,
+                                geo: fullPlaceData.geo,
+                                lat: fullPlaceData.lat,
+                                lng: fullPlaceData.lng
+                            });
+
+                            setPlaceInfo(fullPlaceData);
+                            fetchPlaceProducts(fullPlaceData.name);
+                        } else {
+                            console.error('❌ Failed to fetch place details:', placeResponse.status);
+                        }
+                    }
+                } else {
+                    console.warn('⚠️ Place not found in search results:', placeName);
+                }
+            } else {
+                console.error('❌ Failed to search for place:', searchResponse.status);
+            }
+        } catch (error) {
+            console.error('💥 Error fetching place info:', error);
+        } finally {
+            setLoadingPlace(false);
         }
-        return '/';
+    };
+
+    const fetchPlaceProducts = async (placeName) => {
+        try {
+            const response = await fetch(`/api/places/products?placeName=${encodeURIComponent(placeName)}`);
+            if (response.ok) {
+                const data = await response.json();
+                setPlaceProducts(data.products || []);
+                console.log('Loaded products for place:', placeName, '- Count:', data.products?.length || 0);
+            } else {
+                console.error('Failed to fetch place products:', response.status);
+            }
+        } catch (error) {
+            console.error('Error fetching place products:', error);
+        }
+    };
+
+    const getBackUrl = () => {
+        // Return to home and clear search by adding a reset parameter
+        return '/?reset=true';
     };
 
     const formatPrice = (price) => {
         return typeof price === 'number' ? `$${price.toFixed(2)}` : `$${price}`;
+    };
+
+    const formatType = (type) => {
+        if (!type) return 'Establecimiento';
+
+        const typeMap = {
+            'restaurantes': 'Restaurante',
+            'dulcerias': 'Dulcería',
+            'panaderias': 'Panadería',
+            'heladerias': 'Heladería',
+            'cafes': 'Café',
+            'cafeterias': 'Cafetería',
+            'pizzerias': 'Pizzería',
+            'bares': 'Bar'
+        };
+
+        return typeMap[type.toLowerCase()] || type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+    };
+
+    const handleEmail = (email) => {
+        if (email) {
+            logContactAction('email', product?.product_name || product?.name);
+            window.location.href = `mailto:${email}`;
+        }
+    };
+
+    const handleWhatsApp = (phone) => {
+        if (phone) {
+            logContactAction('whatsapp', product?.product_name || product?.name);
+            const cleanPhone = phone.replace(/[^\d]/g, '');
+            window.open(`https://wa.me/${cleanPhone}`, '_blank');
+        }
     };
 
     const getScoreColor = (score) => {
@@ -158,55 +267,55 @@ export default function ProductDetail() {
                 </header>
 
                 {/* Main Content */}
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                    <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-                        {/* Product Header */}
-                        <div className="relative">
-                            {product.logo ? (
-                                <img
-                                    src={product.logo}
-                                    alt={product.name}
-                                    className="w-full h-64 object-cover bg-gray-100"
-                                />
-                            ) : (
-                                <div className="w-full h-64 bg-gray-100"></div>
-                            )}
-                            <div className="absolute top-4 right-4 bg-white rounded-full px-3 py-1 shadow-md">
-                                <div className={`flex items-center space-x-1 ${getScoreColor(product.score)} text-white px-2 py-1 rounded-full text-sm font-semibold`}>
-                                    <Star className="w-4 h-4" />
-                                    <span>{(product.score * 100).toFixed(0)}%</span>
-                                </div>
+                <div className="max-w-4xl mx-auto px-4 py-8">
+                    {/* Featured Product Card - Only show if we have product info */}
+                    {product && (
+                        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+                            <div className="flex items-center gap-2 mb-4">
+                                <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-medium">
+                                    Producto Destacado
+                                </span>
+                                {product.score && (
+                                    <div className={`flex items-center space-x-1 ${getScoreColor(product.score)} text-white px-2 py-1 rounded-full text-sm font-semibold`}>
+                                        <Star className="w-4 h-4" />
+                                        <span>{(product.score * 100).toFixed(0)}%</span>
+                                    </div>
+                                )}
                             </div>
-                        </div>
 
-                        <div className="p-8">
-                            <div className="grid lg:grid-cols-2 gap-8">
-                                {/* Product Information */}
-                                <div>
+                            <div className="flex flex-col lg:flex-row gap-6">
+                                {/* Product Image */}
+                                <div className="lg:w-1/3">
+                                    {product.logo ? (
+                                        <img
+                                            src={product.logo}
+                                            alt={product.product_name}
+                                            className="w-full h-48 object-cover rounded-lg bg-gray-100"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center">
+                                            <ShoppingBag className="w-16 h-16 text-gray-400" />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Product Info */}
+                                <div className="lg:w-2/3">
                                     <h1 className="text-3xl font-bold text-gray-900 mb-2">
                                         {product.product_name}
                                     </h1>
-                                    <h2 className="text-xl text-gray-600 mb-4">{product.name}</h2>
+                                    <h2 className="text-xl text-gray-600 mb-4">en {product.name}</h2>
+
                                     {product.description && (
-                                        <p className="text-gray-700 text-base mb-4">{product.description}</p>
+                                        <p className="text-gray-700 mb-4">{product.description}</p>
                                     )}
-                                    <div className="text-4xl font-bold text-orange-500 mb-6">
+
+                                    <div className="text-3xl font-bold text-orange-500 mb-4">
                                         {formatPrice(product.product_price)}
                                     </div>
 
-                                    {/* Location */}
-                                    <div className="flex items-start space-x-3 mb-6">
-                                        <MapPin className="w-5 h-5 text-gray-400 mt-1 flex-shrink-0" />
-                                        <div>
-                                            <p className="text-gray-900 font-medium">{product.location}</p>
-                                            {product.address && (
-                                                <p className="text-gray-600 text-sm">{product.address}</p>
-                                            )}
-                                        </div>
-                                    </div>
-
                                     {/* Services */}
-                                    <div className="grid grid-cols-2 gap-4 mb-6">
+                                    <div className="flex gap-4">
                                         {product.delivery && (
                                             <div className="flex items-center space-x-2 text-green-600">
                                                 <Truck className="w-5 h-5" />
@@ -220,91 +329,218 @@ export default function ProductDetail() {
                                             </div>
                                         )}
                                     </div>
-
-                                    {/* Contact Actions */}
-                                    <div className="grid grid-cols-2 gap-4 mb-6">
-                                        {product.phone && product.phone !== '0' && (
-                                            <button
-                                                onClick={() => handleCall(product.phone)}
-                                                className="flex items-center justify-center space-x-2 bg-green-500 text-white px-4 py-3 rounded-md hover:bg-green-600 transition"
-                                            >
-                                                <Phone className="w-5 h-5" />
-                                                <span>Llamar</span>
-                                            </button>
-                                        )}
-
-                                        {product.website && (
-                                            <button
-                                                onClick={() => handleWebsite(product.website)}
-                                                className="flex items-center justify-center space-x-2 bg-blue-500 text-white px-4 py-3 rounded-md hover:bg-blue-600 transition"
-                                            >
-                                                <Globe className="w-5 h-5" />
-                                                <span>Sitio web</span>
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    {/* Social Media */}
-                                    <div className="flex space-x-4">
-                                        {product.instagram && (
-                                            <button
-                                                onClick={() => handleSocialMedia('instagram', product.instagram)}
-                                                className="flex items-center space-x-2 text-pink-500 hover:text-pink-600 transition"
-                                            >
-                                                <Instagram className="w-6 h-6" />
-                                                <span className="text-sm">Instagram</span>
-                                            </button>
-                                        )}
-
-                                        {product.facebook && (
-                                            <button
-                                                onClick={() => handleSocialMedia('facebook', product.facebook)}
-                                                className="flex items-center space-x-2 text-blue-500 hover:text-blue-600 transition"
-                                            >
-                                                <Facebook className="w-6 h-6" />
-                                                <span className="text-sm">Facebook</span>
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Map and Contact Info */}
-                                <div>
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Ubicación</h3>
-                                    {/* Pasar el producto completo sin modificar geo */}
-                                    <Map
-                                        products={[product]}
-                                        selectedProduct={product}
-                                        height="h-80"
-                                        className="mb-4"
-                                    />
-
-                                    {/* Contact Info */}
-                                    <div className="mt-6 bg-gray-50 p-4 rounded-lg">
-                                        <h4 className="font-semibold text-gray-900 mb-3">Información de contacto</h4>
-                                        <div className="space-y-2 text-sm">
-                                            {product.phone && product.phone !== '0' && (
-                                                <div className="flex items-center space-x-2">
-                                                    <Phone className="w-4 h-4 text-gray-400" />
-                                                    <span>{product.phone}</span>
-                                                </div>
-                                            )}
-                                            {product.email && (
-                                                <div className="flex items-center space-x-2">
-                                                    <span className="w-4 h-4 text-gray-400">✉</span>
-                                                    <span>{product.email}</span>
-                                                </div>
-                                            )}
-                                            <div className="flex items-center space-x-2">
-                                                <span className="w-4 h-4 text-gray-400">🏷</span>
-                                                <span className="capitalize">{product.type}</span>
-                                            </div>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    )}
+
+                    {/* Place Information */}
+                    {loadingPlace ? (
+                        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+                            <div className="text-center py-8">
+                                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                                <p className="mt-4 text-gray-600">Cargando información del lugar...</p>
+                            </div>
+                        </div>
+                    ) : placeInfo ? (
+                        <>
+                            {/* Place Header */}
+                            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+                                <div className="flex flex-col lg:flex-row gap-6">
+                                    {/* Left side - Place Info */}
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-medium">
+                                                {formatType(placeInfo.type)}
+                                            </span>
+                                            {placeInfo.score && (
+                                                <div className={`flex items-center space-x-1 ${getScoreColor(placeInfo.score)} text-white px-2 py-1 rounded-full text-sm font-semibold`}>
+                                                    <Star className="w-4 h-4" />
+                                                    <span>{(placeInfo.score * 100).toFixed(0)}%</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <h1 className="text-3xl font-bold text-gray-900 mb-4">{placeInfo.name}</h1>
+
+                                        {/* Contact Info */}
+                                        <div className="space-y-3 mb-6">
+                                            {placeInfo.address && (
+                                                <div className="flex items-start gap-3">
+                                                    <MapPin className="w-5 h-5 text-gray-500 mt-0.5" />
+                                                    <div>
+                                                        <p className="text-gray-900">{placeInfo.address}</p>
+                                                        <p className="text-gray-600">{placeInfo.location}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {placeInfo.phone && placeInfo.phone !== '0' && (
+                                                <div className="flex items-center gap-3">
+                                                    <Phone className="w-5 h-5 text-gray-500" />
+                                                    <button
+                                                        onClick={() => handleCall(placeInfo.phone)}
+                                                        className="text-orange-600 hover:text-orange-700 font-medium"
+                                                    >
+                                                        {placeInfo.phone}
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {placeInfo.web && (
+                                                <div className="flex items-center gap-3">
+                                                    <Globe className="w-5 h-5 text-gray-500" />
+                                                    <button
+                                                        onClick={() => handleWebsite(placeInfo.web)}
+                                                        className="text-orange-600 hover:text-orange-700 font-medium truncate"
+                                                    >
+                                                        {placeInfo.web}
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {placeInfo.email && (
+                                                <div className="flex items-center gap-3">
+                                                    <Mail className="w-5 h-5 text-gray-500" />
+                                                    <button
+                                                        onClick={() => handleEmail(placeInfo.email)}
+                                                        className="text-orange-600 hover:text-orange-700 font-medium"
+                                                    >
+                                                        {placeInfo.email}
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {placeInfo.hours && (
+                                                <div className="flex items-start gap-3">
+                                                    <Clock className="w-5 h-5 text-gray-500 mt-0.5" />
+                                                    <div>
+                                                        <p className="text-gray-900 font-medium">Horarios</p>
+                                                        <p className="text-gray-600">{placeInfo.hours}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        <div className="grid grid-cols-2 gap-4 mb-6">
+                                            {placeInfo.phone && placeInfo.phone !== '0' && (
+                                                <button
+                                                    onClick={() => handleCall(placeInfo.phone)}
+                                                    className="flex items-center justify-center space-x-2 bg-green-500 text-white px-4 py-3 rounded-md hover:bg-green-600 transition"
+                                                >
+                                                    <Phone className="w-5 h-5" />
+                                                    <span>Llamar</span>
+                                                </button>
+                                            )}
+
+                                            {placeInfo.phone && placeInfo.phone !== '0' && (
+                                                <button
+                                                    onClick={() => handleWhatsApp(placeInfo.phone)}
+                                                    className="flex items-center justify-center space-x-2 bg-green-600 text-white px-4 py-3 rounded-md hover:bg-green-700 transition"
+                                                >
+                                                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.306" />
+                                                    </svg>
+                                                    <span>WhatsApp</span>
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Social Media Links */}
+                                        {(placeInfo.instagram || placeInfo.facebook) && (
+                                            <div className="flex gap-4">
+                                                {placeInfo.instagram && (
+                                                    <button
+                                                        onClick={() => handleSocialMedia('instagram', placeInfo.instagram)}
+                                                        className="flex items-center space-x-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-md hover:from-purple-600 hover:to-pink-600 transition"
+                                                    >
+                                                        <Instagram className="w-5 h-5" />
+                                                        <span>Instagram</span>
+                                                    </button>
+                                                )}
+
+                                                {placeInfo.facebook && (
+                                                    <button
+                                                        onClick={() => handleSocialMedia('facebook', placeInfo.facebook)}
+                                                        className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
+                                                    >
+                                                        <Facebook className="w-5 h-5" />
+                                                        <span>Facebook</span>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Right side - Map */}
+                                    {(placeInfo.geo || (placeInfo.lat && placeInfo.lng)) && (
+                                        <div className="lg:w-1/2">
+                                            <div className="h-64 lg:h-full min-h-[300px] rounded-lg overflow-hidden">
+                                                <Map
+                                                    products={[{
+                                                        id: placeInfo.id,
+                                                        name: placeInfo.name,
+                                                        address: placeInfo.address,
+                                                        geo: placeInfo.geo || [placeInfo.lat, placeInfo.lng]
+                                                    }]}
+                                                    selectedProduct={null}
+                                                    height="h-full"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Menu / Products */}
+                            {placeProducts && placeProducts.length > 0 && (
+                                <div className="bg-white rounded-lg shadow-md p-6">
+                                    <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                                        <ShoppingBag className="w-6 h-6 mr-2 text-orange-500" />
+                                        Menú / Productos
+                                    </h3>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {placeProducts.map((menuProduct) => (
+                                            <div key={menuProduct.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                                {menuProduct.logo && (
+                                                    <img
+                                                        src={menuProduct.logo}
+                                                        alt={menuProduct.product_name}
+                                                        className="w-full h-32 object-cover rounded-lg mb-3"
+                                                    />
+                                                )}
+                                                <h4 className="font-semibold text-gray-900 mb-2">
+                                                    {menuProduct.product_name}
+                                                </h4>
+                                                {menuProduct.description && (
+                                                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                                                        {menuProduct.description}
+                                                    </p>
+                                                )}
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-lg font-bold text-orange-500">
+                                                        {formatPrice(menuProduct.product_price)}
+                                                    </span>
+                                                    {menuProduct.score && (
+                                                        <div className={`flex items-center space-x-1 ${getScoreColor(menuProduct.score)} text-white px-2 py-1 rounded-full text-xs font-semibold`}>
+                                                            <Star className="w-3 h-3" />
+                                                            <span>{(menuProduct.score * 100).toFixed(0)}%</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <div className="bg-white rounded-lg shadow-md p-6">
+                            <p className="text-gray-600 text-center">No se pudo cargar la información del lugar.</p>
+                        </div>
+                    )}
                 </div>
             </div>
         </>
