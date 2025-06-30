@@ -42,7 +42,7 @@ export default async function handler(req, res) {
             });
         }
 
-        // Format the products data for the frontend
+        // Format the products data for the frontend and remove duplicates
         const formattedProducts = products.map((product) => {
             return {
                 id: product.id || `product-${Math.random().toString(36).substr(2, 9)}`,
@@ -75,11 +75,19 @@ export default async function handler(req, res) {
             };
         });
 
-        console.log(`Found ${formattedProducts.length} products for place: ${placeName}`);
+        // Remove duplicates based on product name and place name
+        const uniqueProducts = formattedProducts.filter((product, index, array) => {
+            return array.findIndex(p => 
+                p.product_name.toLowerCase() === product.product_name.toLowerCase() && 
+                p.name.toLowerCase() === product.name.toLowerCase()
+            ) === index;
+        });
+
+        console.log(`Found ${formattedProducts.length} products, ${uniqueProducts.length} unique for place: ${placeName}`);
 
         res.status(200).json({
-            products: formattedProducts,
-            total_results: formattedProducts.length,
+            products: uniqueProducts,
+            total_results: uniqueProducts.length,
             place_name: placeName
         });
 

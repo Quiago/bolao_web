@@ -121,7 +121,7 @@ export default async function handler(req, res) {
             });
         }
 
-        // Normalize the places data and return all results
+        // Normalize the places data and remove duplicates
         const processedPlaces = places.map((place) => {
             return {
                 id: place.id?.toString() || `place-${place.name}-${Math.random().toString(36).substr(2, 9)}`,
@@ -143,11 +143,19 @@ export default async function handler(req, res) {
             };
         });
 
-        console.log(`Found ${processedPlaces.length} places for query: "${sanitizedQuery}"`);
+        // Remove duplicates based on name and address
+        const uniquePlaces = processedPlaces.filter((place, index, array) => {
+            return array.findIndex(p => 
+                p.name.toLowerCase() === place.name.toLowerCase() && 
+                p.address === place.address
+            ) === index;
+        });
+
+        console.log(`Found ${processedPlaces.length} places, ${uniquePlaces.length} unique for query: "${sanitizedQuery}"`);
 
         res.status(200).json({
-            places: processedPlaces,
-            total_results: processedPlaces.length,
+            places: uniquePlaces,
+            total_results: uniquePlaces.length,
             search_time: 0
         });
 
