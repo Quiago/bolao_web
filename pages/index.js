@@ -315,8 +315,7 @@ export default function Home() {
                                     className="bg-orange-500 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors flex items-center space-x-1.5 touch-manipulation"
                                 >
                                     <Phone className="w-4 h-4" />
-                                    <span className="hidden xs:inline">Contacto</span>
-                                    <span className="xs:hidden">📞</span>
+                                    <span>Contacto</span>
                                 </button>
                             </div>
                         </div>
@@ -367,8 +366,8 @@ export default function Home() {
                                     onClick={() => setShowChat(true)}
                                     className="bg-blue-500 text-white px-4 py-3 rounded-md hover:bg-blue-600 transition font-semibold flex items-center justify-center"
                                 >
-                                    <MessageSquare className="w-5 h-5 sm:mr-1" />
-                                    <span className="hidden sm:inline">Chat</span>
+                                    <MessageSquare className="w-5 h-5 mr-1" />
+                                    <span>Chat</span>
                                 </button>
                             </div>
                         </div>
@@ -384,8 +383,7 @@ export default function Home() {
                                         }`}
                                 >
                                     <Store className="w-4 h-4 mr-2" />
-                                    <span className="hidden sm:inline">Productos</span>
-                                    <span className="sm:hidden">🛍️</span>
+                                    <span>Productos</span>
                                 </button>
                                 <button
                                     onClick={() => setSearchMode('lugares')}
@@ -395,8 +393,7 @@ export default function Home() {
                                         }`}
                                 >
                                     <MapIcon className="w-4 h-4 mr-2" />
-                                    <span className="hidden sm:inline">Lugares</span>
-                                    <span className="sm:hidden">📍</span>
+                                    <span>Lugares</span>
                                 </button>
                             </div>
                         </div>
