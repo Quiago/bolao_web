@@ -13,6 +13,7 @@ The place menu functionality has been **correctly implemented** according to you
 ### API Endpoint: `/api/places/products.js`
 
 **Query Logic:**
+
 ```javascript
 const { data: products, error } = await supabase
     .from('products')
@@ -73,6 +74,7 @@ INSERT INTO products (name, product_name, product_price, description, delivery, 
 ## ✅ Result
 
 The implementation **exactly matches your requirements**:
+
 - Searches the products table by place name (`name` column)
 - Returns all products (`product_name`, `product_price`, etc.)
 - Displays them on the place detail page

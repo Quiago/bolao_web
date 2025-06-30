@@ -44,7 +44,7 @@ export default async function handler(req, res) {
                 .from('information_schema.tables')
                 .select('table_name')
                 .eq('table_schema', 'public');
-            
+
             if (!schemaError) {
                 availableTables = schemaData?.map(t => t.table_name) || [];
             }
@@ -60,7 +60,7 @@ export default async function handler(req, res) {
                 .select('relname, relrowsecurity')
                 .eq('relname', 'products')
                 .single();
-            
+
             if (!rlsError && rlsData) {
                 rlsInfo = rlsData.relrowsecurity ? 'enabled' : 'disabled';
             }
@@ -84,7 +84,7 @@ export default async function handler(req, res) {
 
     } catch (error) {
         console.error('RLS test error:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Internal server error',
             message: error.message
         });

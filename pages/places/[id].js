@@ -33,7 +33,7 @@ export default function PlaceDetail() {
 
             const data = await response.json();
             setPlace(data);
-            
+
             // After getting place details, fetch the menu/products
             if (data.name) {
                 fetchPlaceProducts(data.name);
@@ -74,6 +74,23 @@ export default function PlaceDetail() {
             month: 'long',
             day: 'numeric'
         });
+    };
+
+    const formatType = (type) => {
+        if (!type) return 'Establecimiento';
+
+        const typeMap = {
+            'restaurantes': 'Restaurante',
+            'dulcerias': 'Dulcería',
+            'panaderias': 'Panadería',
+            'heladerias': 'Heladería',
+            'cafes': 'Café',
+            'cafeterias': 'Cafetería',
+            'pizzerias': 'Pizzería',
+            'bares': 'Bar'
+        };
+
+        return typeMap[type.toLowerCase()] || type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
     };
 
     const handleCall = (phone) => {
@@ -210,15 +227,15 @@ export default function PlaceDetail() {
                             <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-2">
                                     <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-medium">
-                                        {place.type}
+                                        {formatType(place.type)}
                                     </span>
                                 </div>
 
-                                <h2 className="text-3xl font-bold text-gray-900 mb-2">{place.name}</h2>
+                                <h2 className="text-3xl font-bold text-gray-900 mb-4">{place.name}</h2>
 
                                 {/* Rating */}
                                 {place.average_rating && (
-                                    <div className="flex items-center gap-2 mb-4">
+                                    <div className="flex items-center gap-2 mb-6">
                                         <div className="flex items-center">
                                             {renderStars(place.average_rating)}
                                         </div>
@@ -229,13 +246,6 @@ export default function PlaceDetail() {
                                             ({place.total_reviews} reseñas)
                                         </span>
                                     </div>
-                                )}
-
-                                {/* Description */}
-                                {place.description && (
-                                    <p className="text-gray-700 mb-6 leading-relaxed">
-                                        {place.description}
-                                    </p>
                                 )}
 
                                 {/* Contact Info */}
@@ -387,7 +397,7 @@ export default function PlaceDetail() {
                                             <h4 className="font-semibold text-gray-900 mb-1">
                                                 {product.product_name}
                                             </h4>
-                                            
+
                                             {product.description && (
                                                 <p className="text-gray-600 text-sm mb-2 overflow-hidden" style={{
                                                     display: '-webkit-box',

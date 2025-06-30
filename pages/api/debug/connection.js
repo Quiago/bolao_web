@@ -57,7 +57,7 @@ export default async function handler(req, res) {
 
     } catch (error) {
         console.error('Connection test error:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Internal server error',
             message: error.message,
             stack: error.stack
