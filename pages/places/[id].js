@@ -11,7 +11,9 @@ export default function PlaceDetail() {
     const router = useRouter();
     const { id } = router.query;
     const [place, setPlace] = useState(null);
+    const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadingProducts, setLoadingProducts] = useState(false);
     const [error, setError] = useState(null);
 
     useEffect(() => {
@@ -31,11 +33,37 @@ export default function PlaceDetail() {
 
             const data = await response.json();
             setPlace(data);
+            
+            // After getting place details, fetch the menu/products
+            if (data.name) {
+                fetchPlaceProducts(data.name);
+            }
         } catch (error) {
             console.error('Error fetching place details:', error);
             setError(error.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchPlaceProducts = async (placeName) => {
+        try {
+            setLoadingProducts(true);
+            const response = await fetch(`/api/places/products?placeName=${encodeURIComponent(placeName)}`);
+
+            if (response.ok) {
+                const data = await response.json();
+                setProducts(data.products || []);
+                console.log(`Found ${data.products?.length || 0} products for ${placeName}`);
+            } else {
+                console.warn('No products found for place:', placeName);
+                setProducts([]);
+            }
+        } catch (error) {
+            console.error('Error fetching place products:', error);
+            setProducts([]);
+        } finally {
+            setLoadingProducts(false);
         }
     };
 
@@ -59,6 +87,23 @@ export default function PlaceDetail() {
 
     const handleEmail = (email) => {
         window.location.href = `mailto:${email}`;
+    };
+
+    const formatPrice = (product) => {
+        // Check different price fields and return formatted price
+        if (product.product_price) {
+            return `$${product.product_price}`;
+        }
+        if (product.price) {
+            return `$${product.price}`;
+        }
+        if (product.price_range_min && product.price_range_max) {
+            return `$${product.price_range_min} - $${product.price_range_max}`;
+        }
+        if (product.price_range_min) {
+            return `Desde $${product.price_range_min}`;
+        }
+        return 'Consultar precio';
     };
 
     const renderStars = (rating) => {
@@ -311,6 +356,90 @@ export default function PlaceDetail() {
                             )}
                         </div>
                     )}
+
+                    {/* Menu/Products Section */}
+                    <div className="bg-white rounded-lg shadow-md p-6">
+                        <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                            <span className="mr-2">🍽️</span>
+                            Menú / Productos
+                        </h3>
+
+                        {loadingProducts ? (
+                            <div className="text-center py-8">
+                                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mb-4"></div>
+                                <p className="text-gray-600">Cargando menú...</p>
+                            </div>
+                        ) : products.length > 0 ? (
+                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {products.map((product, index) => (
+                                    <div key={product.id || index} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                        {/* Product Image */}
+                                        {product.logo && (
+                                            <img
+                                                src={product.logo}
+                                                alt={product.product_name}
+                                                className="w-full h-32 object-cover rounded-md mb-3"
+                                            />
+                                        )}
+
+                                        {/* Product Info */}
+                                        <div>
+                                            <h4 className="font-semibold text-gray-900 mb-1">
+                                                {product.product_name}
+                                            </h4>
+                                            
+                                            {product.description && (
+                                                <p className="text-gray-600 text-sm mb-2 overflow-hidden" style={{
+                                                    display: '-webkit-box',
+                                                    WebkitLineClamp: 2,
+                                                    WebkitBoxOrient: 'vertical'
+                                                }}>
+                                                    {product.description}
+                                                </p>
+                                            )}
+
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-lg font-bold text-orange-600">
+                                                    {formatPrice(product)}
+                                                </span>
+
+                                                {/* Delivery/Pickup indicators */}
+                                                <div className="flex gap-1">
+                                                    {product.delivery && (
+                                                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">
+                                                            🚚 Delivery
+                                                        </span>
+                                                    )}
+                                                    {product.pickup && (
+                                                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
+                                                            🏪 Pickup
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Product Type */}
+                                            {product.type && (
+                                                <span className="inline-block mt-2 bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs">
+                                                    {product.type}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-8">
+                                <div className="text-gray-400 mb-4">
+                                    <span className="text-4xl">🍽️</span>
+                                </div>
+                                <p className="text-gray-600 mb-2">No hay productos disponibles</p>
+                                <p className="text-gray-500 text-sm">
+                                    El menú de este lugar no está disponible en este momento.
+                                </p>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </>
