@@ -62,7 +62,7 @@ const MapComponent = ({ products = [], selectedProduct = null, onProductSelect =
 
         try {
             console.log('Initializing map...');
-
+            
             // Crear el mapa
             mapInstance.current = L.map(mapRef.current, {
                 center: [23.1136, -82.3666], // La Habana
@@ -116,17 +116,17 @@ const MapComponent = ({ products = [], selectedProduct = null, onProductSelect =
             }
 
             let coords;
-
+            
             // Si ya es un array, usarlo directamente
             if (Array.isArray(geo)) {
                 coords = geo;
                 console.log('Geo is already an array:', coords);
-            }
+            } 
             // Si es un string, parsearlo
             else if (typeof geo === 'string') {
                 console.log('Parsing geo string:', geo);
                 coords = JSON.parse(geo);
-            }
+            } 
             // Si es otro tipo, no es válido
             else {
                 console.warn('Invalid geo type:', typeof geo, geo);
@@ -135,35 +135,15 @@ const MapComponent = ({ products = [], selectedProduct = null, onProductSelect =
 
             // Validar que sea un array con dos números
             if (Array.isArray(coords) && coords.length === 2) {
-                const [first, second] = coords;
+                const [lng, lat] = coords;
 
-                if (typeof first === 'number' && typeof second === 'number') {
-                    let lat, lng;
-
-                    // Auto-detect coordinate format based on typical ranges:
-                    // Latitude: -90 to 90 (usually smaller absolute values for Cuba: ~20-25)
-                    // Longitude: -180 to 180 (for Cuba: around -80 to -85)
-                    if (Math.abs(first) > Math.abs(second)) {
-                        // First value has larger absolute value, likely longitude
-                        // Format: [lng, lat]
-                        lng = first;
-                        lat = second;
-                        console.log('Detected [lng, lat] format:', { lng, lat });
-                    } else {
-                        // First value has smaller absolute value, likely latitude
-                        // Format: [lat, lng] (common in our database)
-                        lat = first;
-                        lng = second;
-                        console.log('Detected [lat, lng] format:', { lat, lng });
-                    }
-
-                    // Validate final coordinates
-                    if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-                        console.log('✅ Valid coordinates parsed:', { lat, lng });
-                        return { lat, lng };
-                    } else {
-                        console.warn('❌ Coordinates out of valid range:', { lat, lng });
-                    }
+                if (
+                    typeof lat === 'number' && typeof lng === 'number' &&
+                    lat >= -90 && lat <= 90 &&
+                    lng >= -180 && lng <= 180
+                ) {
+                    console.log('Valid coordinates:', { lat, lng });
+                    return { lat, lng };
                 }
             }
 
@@ -184,7 +164,7 @@ const MapComponent = ({ products = [], selectedProduct = null, onProductSelect =
 
     const updateMarkers = () => {
         console.log('Updating markers...');
-
+        
         // Limpiar marcadores existentes
         markersRef.current.forEach(marker => {
             mapInstance.current.removeLayer(marker);
@@ -287,12 +267,12 @@ const MapComponent = ({ products = [], selectedProduct = null, onProductSelect =
 
     return (
         <div className="relative w-full h-full">
-            <div
-                ref={mapRef}
+            <div 
+                ref={mapRef} 
                 className="w-full h-full"
                 style={{ minHeight: '256px' }} // Asegurar altura mínima
             />
-
+            
             {/* Loading state */}
             {!mapLoaded && !mapError && (
                 <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
@@ -302,7 +282,7 @@ const MapComponent = ({ products = [], selectedProduct = null, onProductSelect =
                     </div>
                 </div>
             )}
-
+            
             {/* Error state */}
             {mapError && (
                 <div className="absolute inset-0 bg-gray-200 flex items-center justify-center p-4">

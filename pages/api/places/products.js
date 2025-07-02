@@ -77,8 +77,8 @@ export default async function handler(req, res) {
 
         // Remove duplicates based on product name and place name
         const uniqueProducts = formattedProducts.filter((product, index, array) => {
-            return array.findIndex(p => 
-                p.product_name.toLowerCase() === product.product_name.toLowerCase() && 
+            return array.findIndex(p =>
+                p.product_name.toLowerCase() === product.product_name.toLowerCase() &&
                 p.name.toLowerCase() === product.name.toLowerCase()
             ) === index;
         });

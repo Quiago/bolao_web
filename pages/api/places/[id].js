@@ -50,8 +50,8 @@ export default async function handler(req, res) {
             type: place.type || 'Sin categoría',
             address: place.address || 'Dirección no disponible',
             location: place.location || place.address,
-            phone: place.phone ? String(place.phone).replace(/\.0$/, '') : null,
-            phone2: place.phone2 ? String(place.phone2).replace(/\.0$/, '') : null,
+            phone: place.phone || null,
+            phone2: place.phone2 || null,
             web: place.web || null,
             web2: place.web2 || null,
             email: place.email || null,
@@ -62,8 +62,8 @@ export default async function handler(req, res) {
             logo: place.logo || null,
             geo: place.geo || null,
             score: place.score || 0.5,
-            // Remove description auto-generation as requested
-            description: null,
+            // Additional fields that might be expected by the frontend
+            description: place.description || `${place.type || 'Establecimiento'} ubicado en ${place.address || 'La Habana'}`,
             average_rating: place.average_rating || null,
             total_reviews: place.total_reviews || 0,
             created_at: place.created_at || new Date().toISOString(),
@@ -72,50 +72,22 @@ export default async function handler(req, res) {
             lng: null
         };
 
-        // Try to parse geo coordinates from JSONB format
+        // Try to parse geo coordinates
         if (place.geo) {
             try {
-                let geoData = place.geo;
-
-                // If it's a string, parse it as JSON
-                if (typeof geoData === 'string') {
-                    geoData = JSON.parse(geoData);
-                }
-
-                // Handle different geo formats
-                if (Array.isArray(geoData) && geoData.length >= 2) {
-                    // Array format: [lng, lat] or [lat, lng]
-                    const [first, second] = geoData.map(coord => parseFloat(coord));
-
-                    // Determine order by checking typical lat/lng ranges
-                    // Latitude: -90 to 90, Longitude: -180 to 180
-                    // For Cuba: lat ~22-24, lng ~-85 to -74
-                    if (Math.abs(first) <= 90 && Math.abs(second) > 90) {
-                        // first is lat, second is lng
-                        formattedPlace.lat = first;
-                        formattedPlace.lng = second;
-                    } else if (Math.abs(second) <= 90 && Math.abs(first) > 90) {
-                        // second is lat, first is lng
-                        formattedPlace.lat = second;
-                        formattedPlace.lng = first;
-                    } else {
-                        // Default assumption: [lng, lat] (GeoJSON format)
-                        formattedPlace.lat = second;
-                        formattedPlace.lng = first;
+                if (typeof place.geo === 'string') {
+                    // Try to parse as JSON array
+                    const geoArray = JSON.parse(place.geo);
+                    if (Array.isArray(geoArray) && geoArray.length >= 2) {
+                        formattedPlace.lat = parseFloat(geoArray[1]);
+                        formattedPlace.lng = parseFloat(geoArray[0]);
                     }
-                } else if (typeof geoData === 'object' && geoData.lat && geoData.lng) {
-                    // Object format: {lat: ..., lng: ...}
-                    formattedPlace.lat = parseFloat(geoData.lat);
-                    formattedPlace.lng = parseFloat(geoData.lng);
-                } else if (typeof geoData === 'object' && geoData.latitude && geoData.longitude) {
-                    // Object format: {latitude: ..., longitude: ...}
-                    formattedPlace.lat = parseFloat(geoData.latitude);
-                    formattedPlace.lng = parseFloat(geoData.longitude);
+                } else if (Array.isArray(place.geo) && place.geo.length >= 2) {
+                    formattedPlace.lat = parseFloat(place.geo[1]);
+                    formattedPlace.lng = parseFloat(place.geo[0]);
                 }
-
-                console.log('Parsed geo coordinates:', { lat: formattedPlace.lat, lng: formattedPlace.lng });
             } catch (e) {
-                console.warn('Could not parse geo coordinates:', place.geo, e.message);
+                console.warn('Could not parse geo coordinates:', place.geo);
             }
         }
 

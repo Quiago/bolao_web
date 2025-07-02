@@ -7,12 +7,12 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { 
-            searchQuery, 
-            searchType = 'productos', 
-            userLocation, 
+        const {
+            searchQuery,
+            searchType = 'productos',
+            userLocation,
             maxDistance = 10, // km
-            limit = 20 
+            limit = 20
         } = req.body;
 
         if (!searchQuery) {

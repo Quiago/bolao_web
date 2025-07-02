@@ -92,9 +92,9 @@ export default async function handler(req, res) {
         const searchPattern = `%${sanitizedQuery}%`;
         searchQuery = searchQuery.or(`name.ilike.${searchPattern},type.ilike.${searchPattern}`);
 
-        // Add location filter if provided
+        // Add location filter if provided - search in both location and address columns
         if (location && location !== '') {
-            searchQuery = searchQuery.ilike('location', `%${location}%`);
+            searchQuery = searchQuery.or(`location.ilike.%${location}%,address.ilike.%${location}%`);
         }
 
         // Add type filter if provided

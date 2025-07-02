@@ -10,17 +10,17 @@ function generateProductId(product) {
     if (product.id) {
         return product.id;
     }
-    
+
     // Crear un ID basado en nombre y producto
     const baseString = `${product.name}-${product.product_name}`.toLowerCase();
     const cleanString = baseString.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    
+
     // Agregar un hash corto para evitar colisiones
     const hash = crypto.createHash('md5')
         .update(`${product.name}${product.product_name}${product.location || ''}`)
         .digest('hex')
         .substring(0, 6);
-    
+
     return `${cleanString}-${hash}`;
 }
 
@@ -87,14 +87,14 @@ export default async function handler(req, res) {
 
             // Log para debugging
             console.log(`Product: ${product.name} - ${product.product_name} => ID: ${processedProduct.id}, Geo type: ${typeof product.geo}, Description: ${processedProduct.description}`);
-            
+
             return processedProduct;
         });
 
         // Remove duplicates based on product name and place name
         const uniqueProducts = products.filter((product, index, array) => {
-            return array.findIndex(p => 
-                p.product_name.toLowerCase() === product.product_name.toLowerCase() && 
+            return array.findIndex(p =>
+                p.product_name.toLowerCase() === product.product_name.toLowerCase() &&
                 p.name.toLowerCase() === product.name.toLowerCase()
             ) === index;
         });

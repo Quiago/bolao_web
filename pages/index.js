@@ -97,7 +97,7 @@ export default function Home() {
 
     const loadFilterOptions = async (mode = searchMode) => {
         try {
-            const response = await fetch(`/api/filters?mode=${mode}`);
+            const response = await fetch(`/api/filters`);
             const data = await response.json();
             setLocations(data.locations || []);
             setTypes(data.types || []);
