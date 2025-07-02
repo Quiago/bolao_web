@@ -1,20 +1,20 @@
-import { ArrowLeft, Clock, Facebook, Globe, Instagram, Mail, MapPin, Phone, Star, User } from 'lucide-react';
-import dynamic from 'next/dynamic';
+import { ArrowLeft, Clock, Facebook, Globe, Instagram, Mail, MapPin, Phone, ShoppingBag, Star, Truck } from 'lucide-react';
 import Head from 'next/head';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
-
-// Dynamically import Map component to avoid SSR issues
-const Map = dynamic(() => import('../../components/Map'), { ssr: false });
+import Map from '../../components/Map';
+import { useProducts } from '../../contexts/ProductContext';
+import { logContactAction, logProductView, logSocialClick } from '../../utils/analytics';
 
 export default function PlaceDetail() {
     const router = useRouter();
     const { id } = router.query;
     const [place, setPlace] = useState(null);
-    const [products, setProducts] = useState([]);
+    const [placeProducts, setPlaceProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadingProducts, setLoadingProducts] = useState(false);
-    const [error, setError] = useState(null);
+    const { lastSearch } = useProducts();
 
     useEffect(() => {
         if (id) {
@@ -25,22 +25,29 @@ export default function PlaceDetail() {
     const fetchPlaceDetails = async () => {
         try {
             setLoading(true);
+            console.log('🔍 Fetching place details for ID:', id);
+
             const response = await fetch(`/api/places/${id}`);
+            if (response.ok) {
+                const placeData = await response.json();
+                console.log('✅ Place details loaded:', placeData.name);
+                setPlace(placeData);
+                
+                // Log place view analytics
+                logProductView(placeData.id, placeData.name);
 
-            if (!response.ok) {
-                throw new Error('Place not found');
-            }
-
-            const data = await response.json();
-            setPlace(data);
-
-            // After getting place details, fetch the menu/products
-            if (data.name) {
-                fetchPlaceProducts(data.name);
+                // Also fetch products for this place
+                if (placeData.name) {
+                    fetchPlaceProducts(placeData.name);
+                }
+            } else {
+                console.error('❌ Failed to fetch place details:', response.status);
+                // Redirect to home if place not found
+                router.push('/');
             }
         } catch (error) {
-            console.error('Error fetching place details:', error);
-            setError(error.message);
+            console.error('💥 Error fetching place details:', error);
+            router.push('/');
         } finally {
             setLoading(false);
         }
@@ -50,30 +57,27 @@ export default function PlaceDetail() {
         try {
             setLoadingProducts(true);
             const response = await fetch(`/api/places/products?placeName=${encodeURIComponent(placeName)}`);
-
             if (response.ok) {
                 const data = await response.json();
-                setProducts(data.products || []);
-                console.log(`Found ${data.products?.length || 0} products for ${placeName}`);
+                setPlaceProducts(data.products || []);
+                console.log('Loaded products for place:', placeName, '- Count:', data.products?.length || 0);
             } else {
-                console.warn('No products found for place:', placeName);
-                setProducts([]);
+                console.error('Failed to fetch place products:', response.status);
             }
         } catch (error) {
             console.error('Error fetching place products:', error);
-            setProducts([]);
         } finally {
             setLoadingProducts(false);
         }
     };
 
-    const formatDate = (dateString) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('es-ES', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
+    const getBackUrl = () => {
+        // Return to home and clear search by adding a reset parameter
+        return '/?reset=true';
+    };
+
+    const formatPrice = (price) => {
+        return typeof price === 'number' ? `$${price.toFixed(2)}` : `$${price}`;
     };
 
     const formatType = (type) => {
@@ -93,111 +97,85 @@ export default function PlaceDetail() {
         return typeMap[type.toLowerCase()] || type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
     };
 
+    const handleEmail = (email) => {
+        if (email) {
+            logContactAction('email', place?.name);
+            window.location.href = `mailto:${email}`;
+        }
+    };
+
+    const handleWhatsApp = (phone) => {
+        if (phone) {
+            logContactAction('whatsapp', place?.name);
+            const cleanPhone = phone.replace(/[^\d]/g, '');
+            window.open(`https://wa.me/${cleanPhone}`, '_blank');
+        }
+    };
+
+    const getScoreColor = (score) => {
+        if (score > 0.8) return 'bg-green-500';
+        if (score > 0.6) return 'bg-yellow-500';
+        return 'bg-gray-400';
+    };
+
     const handleCall = (phone) => {
-        window.location.href = `tel:${phone}`;
+        if (phone && phone !== '0') {
+            // Log contact action
+            logContactAction('phone_call', place?.name);
+            window.open(`tel:${phone}`, '_self');
+        }
     };
 
     const handleWebsite = (website) => {
-        const url = website.startsWith('http') ? website : `https://${website}`;
-        window.open(url, '_blank');
+        if (website) {
+            // Log contact action
+            logContactAction('website_visit', place?.name);
+            const url = website.startsWith('http') ? website : `https://${website}`;
+            window.open(url, '_blank');
+        }
     };
 
-    const handleEmail = (email) => {
-        window.location.href = `mailto:${email}`;
-    };
+    const handleSocialMedia = (platform, handle) => {
+        if (handle) {
+            // Log social media interaction
+            logSocialClick(platform, place?.name);
 
-    const handleSocialMedia = (platform, username) => {
-        let url = '';
-        switch (platform) {
-            case 'instagram':
-                url = `https://www.instagram.com/${username}`;
-                break;
-            case 'facebook':
-                url = `https://www.facebook.com/${username}`;
-                break;
-            case 'telegram':
-                url = `https://t.me/${username}`;
-                break;
-            case 'youtube':
-                url = `https://www.youtube.com/c/${username}`;
-                break;
-            default:
-                return;
-        }
-        window.open(url, '_blank');
-    };
+            let url = '';
+            const cleanHandle = handle.replace('@', '');
 
-    const formatPrice = (product) => {
-        // Check different price fields and return formatted price
-        if (product.product_price) {
-            return `$${product.product_price}`;
-        }
-        if (product.price) {
-            return `$${product.price}`;
-        }
-        if (product.price_range_min && product.price_range_max) {
-            return `$${product.price_range_min} - $${product.price_range_max}`;
-        }
-        if (product.price_range_min) {
-            return `Desde $${product.price_range_min}`;
-        }
-        return 'Consultar precio';
-    };
+            switch (platform) {
+                case 'instagram':
+                    url = `https://instagram.com/${cleanHandle}`;
+                    break;
+                case 'facebook':
+                    url = handle.includes('facebook.com')
+                        ? handle
+                        : `https://facebook.com/${cleanHandle}`;
+                    break;
+                case 'telegram':
+                    url = handle.includes('t.me')
+                        ? handle
+                        : `https://t.me/${cleanHandle}`;
+                    break;
+                case 'youtube':
+                    url = handle.includes('youtube.com')
+                        ? handle
+                        : `https://youtube.com/${cleanHandle}`;
+                    break;
+                default:
+                    return;
+            }
 
-    const renderStars = (rating) => {
-        const stars = [];
-        const fullStars = Math.floor(rating);
-        const hasHalfStar = rating % 1 !== 0;
-
-        for (let i = 0; i < fullStars; i++) {
-            stars.push(
-                <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-            );
+            window.open(url, '_blank');
         }
-
-        if (hasHalfStar) {
-            stars.push(
-                <div key="half" className="relative">
-                    <Star className="w-5 h-5 text-gray-300" />
-                    <div className="absolute inset-0 overflow-hidden w-1/2">
-                        <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                    </div>
-                </div>
-            );
-        }
-
-        const emptyStars = 5 - Math.ceil(rating);
-        for (let i = 0; i < emptyStars; i++) {
-            stars.push(
-                <Star key={`empty-${i}`} className="w-5 h-5 text-gray-300" />
-            );
-        }
-
-        return stars;
     };
 
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-500 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Cargando detalles del lugar...</p>
-                </div>
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <p className="text-red-600 mb-4">{error}</p>
-                    <button
-                        onClick={() => router.push('/?reset=true')}
-                        className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600"
-                    >
-                        Volver
-                    </button>
+                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+                    <p className="mt-4 text-gray-600">Cargando lugar...</p>
                 </div>
             </div>
         );
@@ -207,13 +185,11 @@ export default function PlaceDetail() {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <div className="text-center">
-                    <p className="text-gray-600 mb-4">Lugar no encontrado</p>
-                    <button
-                        onClick={() => router.push('/?reset=true')}
-                        className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600"
-                    >
-                        Volver
-                    </button>
+                    <h1 className="text-2xl font-bold text-gray-900 mb-4">Lugar no encontrado</h1>
+                    <p className="text-gray-600 mb-6">El lugar que buscas no está disponible</p>
+                    <Link href="/" className="bg-orange-500 text-white px-6 py-3 rounded-md hover:bg-orange-600 transition">
+                        Volver al inicio
+                    </Link>
                 </div>
             </div>
         );
@@ -222,66 +198,74 @@ export default function PlaceDetail() {
     return (
         <>
             <Head>
-                <title>{place.name} - BOLAO</title>
-                <meta name="description" content={place.description || `Detalles de ${place.name}`} />
+                <title>{place.name} - {formatType(place.type)} | BOLAO</title>
+                <meta name="description" content={`${place.name} - ${formatType(place.type)} en ${place.address || place.location}`} />
+                <link rel="icon" href="/bolao-logo.png" />
             </Head>
 
             <div className="min-h-screen bg-gray-50">
                 {/* Header */}
-                <div className="bg-white shadow-sm border-b">
-                    <div className="max-w-4xl mx-auto px-4 py-4 flex items-center">
-                        <button
-                            onClick={() => router.push('/?reset=true')}
-                            className="mr-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
-                        >
-                            <ArrowLeft className="w-6 h-6 text-gray-600" />
-                        </button>
-                        <h1 className="text-2xl font-bold text-gray-900">{place.name}</h1>
+                <header className="bg-white shadow-sm border-b border-gray-200">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div className="flex items-center justify-between h-16">
+                            <div className="flex items-center space-x-4">
+                                <Link
+                                    href={getBackUrl()}
+                                    className="flex items-center space-x-2 text-gray-600 hover:text-orange-500 transition"
+                                >
+                                    <ArrowLeft className="w-5 h-5" />
+                                    <span>{lastSearch.query ? 'Volver a resultados' : 'Volver'}</span>
+                                </Link>
+                                <div className="h-6 w-px bg-gray-300"></div>
+                                <Link href="/" className="flex items-center space-x-3">
+                                    <img
+                                        src="/bolao-logo.png"
+                                        alt="BOLAO Logo"
+                                        className="w-8 h-8"
+                                    />
+                                    <span className="text-xl font-bold text-gray-900">BOLAO</span>
+                                </Link>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                </header>
 
+                {/* Main Content */}
                 <div className="max-w-4xl mx-auto px-4 py-8">
-                    {/* Main Info Card */}
+                    {/* Place Header */}
                     <div className="bg-white rounded-lg shadow-md p-6 mb-6">
                         <div className="flex flex-col lg:flex-row gap-6">
-                            {/* Left side - Info */}
+                            {/* Left side - Place Info */}
                             <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-2">
                                     <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-medium">
                                         {formatType(place.type)}
                                     </span>
+                                    {place.score && (
+                                        <div className={`flex items-center space-x-1 ${getScoreColor(place.score)} text-white px-2 py-1 rounded-full text-sm font-semibold`}>
+                                            <Star className="w-4 h-4" />
+                                            <span>{(place.score * 100).toFixed(0)}%</span>
+                                        </div>
+                                    )}
                                 </div>
 
-                                <h2 className="text-3xl font-bold text-gray-900 mb-4">{place.name}</h2>
-
-                                {/* Rating */}
-                                {place.average_rating && (
-                                    <div className="flex items-center gap-2 mb-6">
-                                        <div className="flex items-center">
-                                            {renderStars(place.average_rating)}
-                                        </div>
-                                        <span className="text-lg font-semibold text-gray-900">
-                                            {place.average_rating.toFixed(1)}
-                                        </span>
-                                        <span className="text-gray-600">
-                                            ({place.total_reviews} reseñas)
-                                        </span>
-                                    </div>
-                                )}
+                                <h1 className="text-3xl font-bold text-gray-900 mb-4">{place.name}</h1>
 
                                 {/* Contact Info */}
-                                <div className="space-y-3">
+                                <div className="space-y-3 mb-6">
                                     {place.address && (
                                         <div className="flex items-start gap-3">
                                             <MapPin className="w-5 h-5 text-gray-500 mt-0.5" />
                                             <div>
                                                 <p className="text-gray-900">{place.address}</p>
-                                                <p className="text-gray-600">{place.location}</p>
+                                                {place.location && place.location !== place.address && (
+                                                    <p className="text-gray-600">{place.location}</p>
+                                                )}
                                             </div>
                                         </div>
                                     )}
 
-                                    {place.phone && (
+                                    {place.phone && place.phone !== '0' && (
                                         <div className="flex items-center gap-3">
                                             <Phone className="w-5 h-5 text-gray-500" />
                                             <button
@@ -293,7 +277,7 @@ export default function PlaceDetail() {
                                         </div>
                                     )}
 
-                                    {place.phone2 && place.phone2 !== place.phone && (
+                                    {place.phone2 && place.phone2 !== '0' && place.phone2 !== place.phone && (
                                         <div className="flex items-center gap-3">
                                             <Phone className="w-5 h-5 text-gray-500" />
                                             <button
@@ -305,14 +289,14 @@ export default function PlaceDetail() {
                                         </div>
                                     )}
 
-                                    {place.website && (
+                                    {place.web && (
                                         <div className="flex items-center gap-3">
                                             <Globe className="w-5 h-5 text-gray-500" />
                                             <button
-                                                onClick={() => handleWebsite(place.website)}
-                                                className="text-orange-600 hover:text-orange-700 font-medium"
+                                                onClick={() => handleWebsite(place.web)}
+                                                className="text-orange-600 hover:text-orange-700 font-medium truncate"
                                             >
-                                                {place.website}
+                                                {place.web}
                                             </button>
                                         </div>
                                     )}
@@ -322,7 +306,7 @@ export default function PlaceDetail() {
                                             <Globe className="w-5 h-5 text-gray-500" />
                                             <button
                                                 onClick={() => handleWebsite(place.web2)}
-                                                className="text-orange-600 hover:text-orange-700 font-medium"
+                                                className="text-orange-600 hover:text-orange-700 font-medium truncate"
                                             >
                                                 {place.web2} <span className="text-gray-500 text-sm">(2)</span>
                                             </button>
@@ -340,63 +324,95 @@ export default function PlaceDetail() {
                                             </button>
                                         </div>
                                     )}
+
+                                    {place.hours && (
+                                        <div className="flex items-start gap-3">
+                                            <Clock className="w-5 h-5 text-gray-500 mt-0.5" />
+                                            <div>
+                                                <p className="text-gray-900 font-medium">Horarios</p>
+                                                <p className="text-gray-600">{place.hours}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="grid grid-cols-2 gap-4 mb-6">
+                                    {place.phone && place.phone !== '0' && (
+                                        <button
+                                            onClick={() => handleCall(place.phone)}
+                                            className="flex items-center justify-center space-x-2 bg-green-500 text-white px-4 py-3 rounded-md hover:bg-green-600 transition"
+                                        >
+                                            <Phone className="w-5 h-5" />
+                                            <span>Llamar</span>
+                                        </button>
+                                    )}
+
+                                    {place.phone && place.phone !== '0' && (
+                                        <button
+                                            onClick={() => handleWhatsApp(place.phone)}
+                                            className="flex items-center justify-center space-x-2 bg-green-600 text-white px-4 py-3 rounded-md hover:bg-green-700 transition"
+                                        >
+                                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.306" />
+                                            </svg>
+                                            <span>WhatsApp</span>
+                                        </button>
+                                    )}
                                 </div>
 
                                 {/* Social Media Links */}
                                 {(place.instagram || place.facebook || place.telegram || place.youtube) && (
-                                    <div className="mt-6">
-                                        <h4 className="text-sm font-medium text-gray-900 mb-3">Redes Sociales</h4>
-                                        <div className="flex flex-wrap gap-3">
-                                            {place.instagram && (
-                                                <button
-                                                    onClick={() => handleSocialMedia('instagram', place.instagram)}
-                                                    className="flex items-center space-x-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-md hover:from-purple-600 hover:to-pink-600 transition"
-                                                >
-                                                    <Instagram className="w-5 h-5" />
-                                                    <span>Instagram</span>
-                                                </button>
-                                            )}
+                                    <div className="flex flex-wrap gap-3">
+                                        {place.instagram && (
+                                            <button
+                                                onClick={() => handleSocialMedia('instagram', place.instagram)}
+                                                className="flex items-center space-x-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-md hover:from-purple-600 hover:to-pink-600 transition"
+                                            >
+                                                <Instagram className="w-5 h-5" />
+                                                <span>Instagram</span>
+                                            </button>
+                                        )}
 
-                                            {place.facebook && (
-                                                <button
-                                                    onClick={() => handleSocialMedia('facebook', place.facebook)}
-                                                    className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
-                                                >
-                                                    <Facebook className="w-5 h-5" />
-                                                    <span>Facebook</span>
-                                                </button>
-                                            )}
+                                        {place.facebook && (
+                                            <button
+                                                onClick={() => handleSocialMedia('facebook', place.facebook)}
+                                                className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
+                                            >
+                                                <Facebook className="w-5 h-5" />
+                                                <span>Facebook</span>
+                                            </button>
+                                        )}
 
-                                            {place.telegram && (
-                                                <button
-                                                    onClick={() => handleSocialMedia('telegram', place.telegram)}
-                                                    className="flex items-center space-x-2 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition"
-                                                >
-                                                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                                        <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
-                                                    </svg>
-                                                    <span>Telegram</span>
-                                                </button>
-                                            )}
+                                        {place.telegram && (
+                                            <button
+                                                onClick={() => handleSocialMedia('telegram', place.telegram)}
+                                                className="flex items-center space-x-2 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition"
+                                            >
+                                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+                                                </svg>
+                                                <span>Telegram</span>
+                                            </button>
+                                        )}
 
-                                            {place.youtube && (
-                                                <button
-                                                    onClick={() => handleSocialMedia('youtube', place.youtube)}
-                                                    className="flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition"
-                                                >
-                                                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                                                    </svg>
-                                                    <span>YouTube</span>
-                                                </button>
-                                            )}
-                                        </div>
+                                        {place.youtube && (
+                                            <button
+                                                onClick={() => handleSocialMedia('youtube', place.youtube)}
+                                                className="flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition"
+                                            >
+                                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                                                </svg>
+                                                <span>YouTube</span>
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                             </div>
 
                             {/* Right side - Map */}
-                            {(place.lat && place.lng) && (
+                            {(place.geo || (place.lat && place.lng)) && (
                                 <div className="lg:w-1/2">
                                     <div className="h-64 lg:h-full min-h-[300px] rounded-lg overflow-hidden">
                                         <Map
@@ -404,7 +420,7 @@ export default function PlaceDetail() {
                                                 id: place.id,
                                                 name: place.name,
                                                 address: place.address,
-                                                geo: [place.lat, place.lng]
+                                                geo: place.geo || [place.lat, place.lng]
                                             }]}
                                             selectedProduct={null}
                                             height="h-full"
@@ -415,138 +431,55 @@ export default function PlaceDetail() {
                         </div>
                     </div>
 
-                    {/* Reviews Section */}
-                    {place.recent_reviews && place.recent_reviews.length > 0 && (
+                    {/* Menu / Products */}
+                    {loadingProducts ? (
                         <div className="bg-white rounded-lg shadow-md p-6">
-                            <h3 className="text-xl font-bold text-gray-900 mb-6">
-                                Reseñas Recientes
-                            </h3>
-                            <div className="space-y-6">
-                                {place.recent_reviews.map((review) => (
-                                    <div key={review.id} className="border-b border-gray-200 pb-6 last:border-b-0 last:pb-0">
-                                        <div className="flex items-start gap-4">
-                                            <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-                                                <User className="w-6 h-6 text-orange-600" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <div>
-                                                        <h4 className="font-semibold text-gray-900">
-                                                            {review.profiles?.full_name || review.profiles?.username || 'Usuario'}
-                                                        </h4>
-                                                        <div className="flex items-center gap-1">
-                                                            {renderStars(review.rating)}
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-1 text-gray-500 text-sm">
-                                                        <Clock className="w-4 h-4" />
-                                                        {formatDate(review.created_at)}
-                                                    </div>
-                                                </div>
-                                                {review.comment && (
-                                                    <p className="text-gray-700 leading-relaxed">
-                                                        {review.comment}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {place.total_reviews > place.recent_reviews.length && (
-                                <div className="mt-6 text-center">
-                                    <p className="text-gray-600">
-                                        Mostrando {place.recent_reviews.length} de {place.total_reviews} reseñas
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Menu/Products Section */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-                            <span className="mr-2">🍽️</span>
-                            Menú / Productos
-                        </h3>
-
-                        {loadingProducts ? (
                             <div className="text-center py-8">
-                                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mb-4"></div>
-                                <p className="text-gray-600">Cargando menú...</p>
+                                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                                <p className="mt-4 text-gray-600">Cargando productos...</p>
                             </div>
-                        ) : products.length > 0 ? (
-                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {products.map((product, index) => (
-                                    <div key={product.id || index} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                                        {/* Product Image */}
-                                        {product.logo && (
+                        </div>
+                    ) : placeProducts && placeProducts.length > 0 && (
+                        <div className="bg-white rounded-lg shadow-md p-6">
+                            <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                                <ShoppingBag className="w-6 h-6 mr-2 text-orange-500" />
+                                Menú / Productos
+                            </h3>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {placeProducts.map((menuProduct) => (
+                                    <div key={menuProduct.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                        {menuProduct.logo && (
                                             <img
-                                                src={product.logo}
-                                                alt={product.product_name}
-                                                className="w-full h-32 object-cover rounded-md mb-3"
+                                                src={menuProduct.logo}
+                                                alt={menuProduct.product_name}
+                                                className="w-full h-32 object-cover rounded-lg mb-3"
                                             />
                                         )}
-
-                                        {/* Product Info */}
-                                        <div>
-                                            <h4 className="font-semibold text-gray-900 mb-1">
-                                                {product.product_name}
-                                            </h4>
-
-                                            {product.description && (
-                                                <p className="text-gray-600 text-sm mb-2 overflow-hidden" style={{
-                                                    display: '-webkit-box',
-                                                    WebkitLineClamp: 2,
-                                                    WebkitBoxOrient: 'vertical'
-                                                }}>
-                                                    {product.description}
-                                                </p>
-                                            )}
-
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-lg font-bold text-orange-600">
-                                                    {formatPrice(product)}
-                                                </span>
-
-                                                {/* Delivery/Pickup indicators */}
-                                                <div className="flex gap-1">
-                                                    {product.delivery && (
-                                                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">
-                                                            🚚 Delivery
-                                                        </span>
-                                                    )}
-                                                    {product.pickup && (
-                                                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
-                                                            🏪 Pickup
-                                                        </span>
-                                                    )}
+                                        <h4 className="font-semibold text-gray-900 mb-2">
+                                            {menuProduct.product_name}
+                                        </h4>
+                                        {menuProduct.description && (
+                                            <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                                                {menuProduct.description}
+                                            </p>
+                                        )}
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-lg font-bold text-orange-500">
+                                                {formatPrice(menuProduct.product_price)}
+                                            </span>
+                                            {menuProduct.score && (
+                                                <div className={`flex items-center space-x-1 ${getScoreColor(menuProduct.score)} text-white px-2 py-1 rounded-full text-xs font-semibold`}>
+                                                    <Star className="w-3 h-3" />
+                                                    <span>{(menuProduct.score * 100).toFixed(0)}%</span>
                                                 </div>
-                                            </div>
-
-                                            {/* Product Type */}
-                                            {product.type && (
-                                                <span className="inline-block mt-2 bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs">
-                                                    {product.type}
-                                                </span>
                                             )}
                                         </div>
                                     </div>
                                 ))}
                             </div>
-                        ) : (
-                            <div className="text-center py-8">
-                                <div className="text-gray-400 mb-4">
-                                    <span className="text-4xl">🍽️</span>
-                                </div>
-                                <p className="text-gray-600 mb-2">No hay productos disponibles</p>
-                                <p className="text-gray-500 text-sm">
-                                    El menú de este lugar no está disponible en este momento.
-                                </p>
-                            </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </>
