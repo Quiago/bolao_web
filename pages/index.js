@@ -300,6 +300,13 @@ export default function Home() {
 
                             {/* Desktop Navigation */}
                             <nav className="hidden md:flex space-x-8">
+                                <Link href="/backoffice/login">
+                                    <button
+                                        className="bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-orange-600 transition-colors shadow-md"
+                                    >
+                                        Para negocios
+                                    </button>
+                                </Link>
                                 <button
                                     onClick={() => setShowContact(true)}
                                     className="text-gray-700 hover:text-orange-500 transition"

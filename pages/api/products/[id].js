@@ -16,8 +16,8 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      const { data: place, error } = await supabase
-        .from('places')
+      const { data: product, error } = await supabase
+        .from('products')
         .select('*')
         .eq('id', id)
         .eq('business_account_id', user.id)
@@ -25,16 +25,16 @@ export default async function handler(req, res) {
 
       if (error) {
         if (error.code === 'PGRST116') {
-          return res.status(404).json({ error: 'Lugar no encontrado' });
+          return res.status(404).json({ error: 'Producto no encontrado' });
         }
-        return res.status(500).json({ error: 'Error al consultar lugar', details: error.message });
+        return res.status(500).json({ error: 'Error al consultar producto', details: error.message });
       }
 
-      return res.status(200).json({ place });
+      return res.status(200).json({ product });
     } catch (err) {
       return res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
 
   return res.status(405).json({ error: 'Método no permitido' });
-}
+} 
