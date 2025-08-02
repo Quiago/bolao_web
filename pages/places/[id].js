@@ -6,6 +6,8 @@ import { useEffect, useState } from 'react';
 import Map from '../../components/Map';
 import { useProducts } from '../../contexts/ProductContext';
 import { logContactAction, logProductView, logSocialClick } from '../../utils/analytics';
+import ReviewsList from '../../components/reviews/ReviewsList';
+import ReviewForm from '../../components/reviews/ReviewForm';
 
 export default function PlaceDetail() {
     const router = useRouter();
@@ -480,6 +482,23 @@ export default function PlaceDetail() {
                             </div>
                         </div>
                     )}
+
+                    {/* Reseñas */}
+                    <div className="space-y-8">
+                        <ReviewsList 
+                            placeId={place.id}
+                            className="bg-white rounded-lg shadow-md p-6"
+                        />
+                        
+                        <ReviewForm 
+                            placeId={place.id}
+                            placeName={place.name}
+                            onReviewSubmitted={(newReview) => {
+                                // Opcional: Actualizar la lista de reseñas
+                                console.log('Nueva reseña:', newReview);
+                            }}
+                        />
+                    </div>
                 </div>
             </div>
         </>

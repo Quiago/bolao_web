@@ -30,10 +30,24 @@ export default async function handler(req, res) {
     const secret = process.env.JWT_SECRET || 'supersecret';
     const payload = {
       id: data.id,
+      business_account_id: data.id, // Explícito para mayor claridad
       email: data.email,
+      business_name: data.business_name || null,
     };
     const token = jwt.sign(payload, secret, { expiresIn: '7d' });
-    return res.status(200).json({ success: true, token, user: { id: data.id, email: data.email, phone: data.phone, website: data.website, description: data.description } });
+    return res.status(200).json({ 
+      success: true, 
+      token, 
+      user: { 
+        id: data.id,
+        business_account_id: data.id,
+        email: data.email, 
+        phone: data.phone, 
+        website: data.website, 
+        description: data.description,
+        business_name: data.business_name 
+      } 
+    });
   } catch (err) {
     return res.status(500).json({ error: 'Error interno del servidor' });
   }

@@ -31,22 +31,25 @@ export default async function handler(req, res) {
 
       // Aplicar filtros
       if (req.query.search) {
-        query = query.or(`product_name.ilike.%${req.query.search}%,description.ilike.%${req.query.search}%,category.ilike.%${req.query.search}%`);
+        query = query.or(`product_name.ilike.%${req.query.search}%,description.ilike.%${req.query.search}%,name.ilike.%${req.query.search}%,type.ilike.%${req.query.search}%`);
       }
-      if (req.query.category) {
-        query = query.eq('category', req.query.category);
+      if (req.query.type) {
+        query = query.eq('type', req.query.type);
       }
-      if (req.query.available !== undefined) {
-        query = query.eq('available', req.query.available === 'true');
+      if (req.query.location) {
+        query = query.ilike('location', `%${req.query.location}%`);
+      }
+      if (req.query.delivery) {
+        query = query.eq('delivery', req.query.delivery);
+      }
+      if (req.query.pickup) {
+        query = query.eq('pickup', req.query.pickup);
       }
       if (req.query.price_gte) {
-        query = query.gte('price', parseFloat(req.query.price_gte));
+        query = query.gte('product_price', parseFloat(req.query.price_gte));
       }
       if (req.query.price_lte) {
-        query = query.lte('price', parseFloat(req.query.price_lte));
-      }
-      if (req.query.stock_quantity_gte) {
-        query = query.gte('stock_quantity', parseInt(req.query.stock_quantity_gte));
+        query = query.lte('product_price', parseFloat(req.query.price_lte));
       }
 
       // Aplicar paginación
@@ -83,11 +86,45 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     // Creación de producto
     try {
+      // Validar campos requeridos
+      const { name, product_slug } = req.body;
+      if (!name || !product_slug) {
+        return res.status(400).json({ 
+          error: 'Los campos name y product_slug son requeridos' 
+        });
+      }
+
+      // Generar slug automáticamente si no se proporciona
+      const finalSlug = req.body.slug || req.body.product_slug || req.body.product_name?.toLowerCase().replace(/\s+/g, '-') || '';
+
       const productData = {
-        ...req.body,
-        business_account_id: user.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        name: req.body.name,
+        product_slug: req.body.product_slug,
+        product_name: req.body.product_name || null,
+        description: req.body.description || null,
+        type: req.body.type || null,
+        location: req.body.location || null,
+        address: req.body.address || null,
+        phone: req.body.phone || null,
+        phone2: req.body.phone2 || null,
+        web: req.body.web || null,
+        web2: req.body.web2 || null,
+        email: req.body.email || null,
+        facebook: req.body.facebook || null,
+        instagram: req.body.instagram || null,
+        youtube: req.body.youtube || null,
+        telegram: req.body.telegram || null,
+        logo: req.body.logo || null,
+        geo: req.body.geo || null,
+        score: req.body.score || null,
+        delivery: req.body.delivery || null,
+        pickup: req.body.pickup || null,
+        slug: finalSlug,
+        product_price: req.body.product_price ? parseFloat(req.body.product_price) : null,
+        price: req.body.price || null,
+        'prince-range-min': req.body['prince-range-min'] || null,
+        'prince-range-max': req.body['prince-range-max'] || null,
+        business_account_id: user.id
       };
 
       const { data: product, error } = await supabase
@@ -119,15 +156,33 @@ export default async function handler(req, res) {
     if (findError || !product) return res.status(404).json({ error: 'Producto no encontrado' });
     if (product.business_account_id !== user.id) return res.status(403).json({ error: 'No autorizado' });
     
-    const updateData = {
-      ...fields,
-      updated_at: new Date().toISOString()
-    };
+    // Filtrar solo campos válidos del esquema
+    const allowedFields = [
+      'name', 'product_slug', 'product_name', 'description', 'type', 
+      'location', 'address', 'phone', 'phone2', 'web', 'web2', 
+      'email', 'facebook', 'instagram', 'youtube', 'telegram', 
+      'logo', 'geo', 'score', 'delivery', 'pickup', 'slug', 
+      'product_price', 'price', 'prince-range-min', 'prince-range-max'
+    ];
+    
+    const updateData = {};
+    
+    // Solo incluir campos válidos
+    allowedFields.forEach(field => {
+      if (fields[field] !== undefined) {
+        if (field === 'product_price') {
+          updateData[field] = parseFloat(fields[field]) || null;
+        } else {
+          updateData[field] = fields[field];
+        }
+      }
+    });
     
     const { data: updatedProduct, error: updateError } = await supabase
       .from('products')
       .update(updateData)
       .eq('id', id)
+      .eq('business_account_id', user.id) // Doble verificación
       .select()
       .single();
       

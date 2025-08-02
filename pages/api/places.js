@@ -31,13 +31,13 @@ export default async function handler(req, res) {
 
       // Aplicar filtros
       if (req.query.search) {
-        query = query.or(`name.ilike.%${req.query.search}%,description.ilike.%${req.query.search}%,address.ilike.%${req.query.search}%`);
+        query = query.or(`name.ilike.%${req.query.search}%,location.ilike.%${req.query.search}%,address.ilike.%${req.query.search}%`);
       }
-      if (req.query.category) {
-        query = query.eq('category', req.query.category);
+      if (req.query.type) {
+        query = query.eq('type', req.query.type);
       }
-      if (req.query.verified !== undefined) {
-        query = query.eq('verified', req.query.verified === 'true');
+      if (req.query.location) {
+        query = query.ilike('location', `%${req.query.location}%`);
       }
       if (req.query.address) {
         query = query.ilike('address', `%${req.query.address}%`);
@@ -77,9 +77,34 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     // Creación de lugar
     try {
+      // Validar campos requeridos
+      const { name, type, location } = req.body;
+      if (!name || !type || !location) {
+        return res.status(400).json({ 
+          error: 'Los campos name, type y location son requeridos' 
+        });
+      }
+
       const placeData = {
-        ...req.body,
+        name: req.body.name,
+        type: req.body.type,
+        location: req.body.location,
+        address: req.body.address || null,
+        phone: req.body.phone || null,
+        phone2: req.body.phone2 || null,
+        web: req.body.web || null,
+        web2: req.body.web2 || null,
+        email: req.body.email || null,
+        facebook: req.body.facebook || null,
+        instagram: req.body.instagram || null,
+        youtube: req.body.youtube || null,
+        telegram: req.body.telegram || null,
+        logo: req.body.logo || null,
+        geo: req.body.geo || null,
+        score: req.body.score || 0,
+        total_reviews: req.body.total_reviews || 0,
         business_account_id: user.id,
+        // created_by: user.id, // Comentado para evitar foreign key constraint - el sistema usa business_account, no auth.users
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -113,15 +138,29 @@ export default async function handler(req, res) {
     if (findError || !place) return res.status(404).json({ error: 'Lugar no encontrado' });
     if (place.business_account_id !== user.id) return res.status(403).json({ error: 'No autorizado' });
     
+    // Filtrar solo campos válidos del esquema (excluyendo created_by por foreign key issues)
+    const allowedFields = [
+      'name', 'type', 'location', 'address', 'phone', 'phone2', 
+      'web', 'web2', 'email', 'facebook', 'instagram', 'youtube', 
+      'telegram', 'logo', 'geo', 'score', 'total_reviews'
+    ];
+    
     const updateData = {
-      ...fields,
       updated_at: new Date().toISOString()
     };
+    
+    // Solo incluir campos válidos
+    allowedFields.forEach(field => {
+      if (fields[field] !== undefined) {
+        updateData[field] = fields[field];
+      }
+    });
     
     const { data: updatedPlace, error: updateError } = await supabase
       .from('places')
       .update(updateData)
       .eq('id', id)
+      .eq('business_account_id', user.id) // Doble verificación
       .select()
       .single();
       

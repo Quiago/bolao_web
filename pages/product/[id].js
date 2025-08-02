@@ -6,6 +6,8 @@ import { useEffect, useState } from 'react';
 import Map from '../../components/Map';
 import { useProducts } from '../../contexts/ProductContext';
 import { logContactAction, logProductView, logSocialClick } from '../../utils/analytics';
+import ReviewsList from '../../components/reviews/ReviewsList';
+import ReviewForm from '../../components/reviews/ReviewForm';
 
 export default function ProductDetail() {
     const router = useRouter();
@@ -587,6 +589,25 @@ export default function ProductDetail() {
                     ) : (
                         <div className="bg-white rounded-lg shadow-md p-6">
                             <p className="text-gray-600 text-center">No se pudo cargar la información del lugar.</p>
+                        </div>
+                    )}
+
+                    {/* Reseñas del lugar */}
+                    {placeInfo && placeInfo.id && (
+                        <div className="space-y-8">
+                            <ReviewsList 
+                                placeId={placeInfo.id}
+                                className="bg-white rounded-lg shadow-md p-6"
+                            />
+                            
+                            <ReviewForm 
+                                placeId={placeInfo.id}
+                                placeName={placeInfo.name}
+                                onReviewSubmitted={(newReview) => {
+                                    // Opcional: Actualizar la lista de reseñas
+                                    console.log('Nueva reseña:', newReview);
+                                }}
+                            />
                         </div>
                     )}
                 </div>
